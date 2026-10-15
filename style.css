@@ -1,0 +1,320 @@
+:root {
+  color-scheme: light dark;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --control-border: #898781;
+  --series-1: #2a78d6;
+  --meter-track: #cde2fb; /* same blue ramp as the fill, so the whole meter reads as one thing */
+  --deemphasis: #c3c2b7;
+  --action: #256abf;
+  --critical: #d03b3b;
+  --positive: #006300; /* income amounts; the + sign carries the meaning, colour only supports it */
+  --plot-height: 140px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --series-1: #3987e5;
+    --meter-track: #0d366b;
+    --positive: #0ca30c;
+    --deemphasis: #52514e;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+    calc(88px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* children may never widen the page */
+  gap: 16px;
+}
+
+h1, h2, p { margin: 0; }
+h1 { font-size: 18px; font-weight: 600; }
+h2 { font-size: 15px; font-weight: 600; }
+.sub { font-size: 13px; color: var(--text-secondary); }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Controls */
+button, input {
+  font: inherit;
+  color: inherit;
+  min-height: 40px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+button { padding: 0 14px; cursor: pointer; }
+input { width: 100%; padding: 0 10px; }
+button.primary { background: var(--action); border-color: var(--action); color: #fff; font-weight: 600; }
+button.ghost { min-width: 40px; padding: 0; background: none; border-color: transparent; font-size: 20px; }
+:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.month-nav { display: flex; align-items: center; gap: 2px; }
+.month-nav input { width: auto; }
+
+/* Account switch: native radios, so arrow keys and screen readers work unaided */
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+}
+.segmented label {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.segmented input { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; opacity: 0; cursor: pointer; }
+.segmented small { font-size: 12px; font-weight: 400; color: var(--text-secondary); overflow-wrap: anywhere; }
+.segmented label:has(:checked) { background: var(--action); color: #fff; }
+.segmented label:has(:checked) small { color: #fff; }
+.segmented label:has(:focus-visible) { outline: 2px solid var(--series-1); outline-offset: 2px; }
+
+.segmented.kind { grid-column: 1 / -1; }
+.income { color: var(--positive); }
+
+.hero .label { font-size: 14px; color: var(--text-secondary); }
+.hero-value { font-size: clamp(40px, 13vw, 56px); font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.balance { display: grid; gap: 8px; }
+.stat { font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
+.meter { height: 8px; border-radius: 4px; overflow: hidden; background: var(--meter-track); }
+.meter div { height: 100%; background: var(--series-1); }
+.meter .over { background: var(--critical); }
+
+dialog {
+  width: min(360px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+dialog form { grid-template-columns: minmax(0, 1fr); }
+
+form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+form label { display: grid; gap: 4px; font-size: 13px; color: var(--text-secondary); min-width: 0; }
+form input { color: var(--text-primary); }
+.actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.actions button { white-space: nowrap; } /* wrap whole buttons, not their labels */
+.actions .primary { flex: 1; }
+
+/* Category bars: a real table, so the chart is its own table view */
+.bars { width: 100%; border-collapse: collapse; font-size: 14px; }
+.bars th, .bars td { padding: 6px 0 6px 10px; font-weight: 400; text-align: left; }
+.bars th { padding-left: 0; max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars .num { text-align: right; }
+.bars .bar-cell { width: 100%; }
+.bars .share { color: var(--text-secondary); min-width: 3em; }
+.bars .bar { height: 12px; min-width: 2px; border-radius: 0 4px 4px 0; background: var(--series-1); }
+.bars tr:hover .bar { filter: brightness(1.1); }
+
+/* Monthly columns */
+.trend { display: grid; grid-template-columns: 3em 1fr; column-gap: 8px; margin-top: 28px; }
+.axis {
+  position: relative;
+  height: var(--plot-height);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.axis span { position: absolute; right: 0; transform: translateY(-50%); white-space: nowrap; }
+.axis span:nth-child(1) { top: 0; }
+.axis span:nth-child(2) { top: 50%; }
+.axis span:nth-child(3) { top: 100%; }
+
+.columns {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  background:
+    linear-gradient(var(--grid), var(--grid)) 0 0 / 100% 1px no-repeat,
+    linear-gradient(var(--grid), var(--grid)) 0 calc(var(--plot-height) / 2) / 100% 1px no-repeat,
+    linear-gradient(var(--axis), var(--axis)) 0 var(--plot-height) / 100% 1px no-repeat;
+}
+.column {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.column .plot {
+  width: 100%;
+  height: var(--plot-height);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+}
+.column .bar { flex: none; width: min(24px, 100%); border-radius: 4px 4px 0 0; background: var(--deemphasis); }
+.column .tick { padding-top: 6px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.column[aria-pressed="true"] .bar { background: var(--series-1); }
+.column[aria-pressed="true"] .tick { color: var(--text-primary); font-weight: 600; }
+.column:hover .bar, .column:focus-visible .bar { filter: brightness(1.1); }
+
+.column::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
+.column:hover::after, .column:focus-visible::after { opacity: 1; }
+.column:nth-child(-n+3)::after { left: 0; transform: none; }
+.column:nth-last-child(-n+3)::after { left: auto; right: 0; transform: none; }
+
+/* Narrow plot: twelve month labels collide, so label every third month counted
+   back from the newest, plus the selected one (its neighbours give way). */
+@media (max-width: 480px) {
+  .column:not(:nth-last-child(3n+1), [aria-pressed="true"]) .tick,
+  .column[aria-pressed="true"] + .column .tick,
+  .column:has(+ [aria-pressed="true"]) .tick { visibility: hidden; }
+}
+
+/* Expense list */
+.expenses { list-style: none; margin: 0; padding: 0; }
+.expenses li {
+  display: grid;
+  grid-template-columns: 3.5em minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--grid);
+  font-size: 14px;
+}
+.expenses li:first-child { border-top: 0; }
+.expenses .day { color: var(--text-secondary); font-size: 13px; }
+.expenses .what { display: grid; }
+.expenses .what > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expenses .what strong { font-weight: 600; }
+.expenses .what span { color: var(--text-secondary); font-size: 13px; }
+.expenses button { min-width: 36px; min-height: 36px; font-size: 16px; }
+
+/* Bills: status column has a floor width so the amounts line up across rows,
+   and grows for a long "Paid" amount instead of overlapping the Edit button */
+.bills li { grid-template-columns: minmax(0, 1fr) auto minmax(5.5rem, auto) auto; }
+.bills .what { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.bills .status { justify-self: end; }
+.paid { color: var(--positive); font-size: 13px; white-space: nowrap; }
+
+/* Limits: one block per limit, meter under the name */
+.limits { list-style: none; margin: 0; padding: 0; }
+.limits li { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--grid); }
+.limits li:first-child { border-top: 0; padding-top: 4px; }
+.limit-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
+.limit-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.limit-head button { min-width: 36px; min-height: 36px; font-size: 16px; }
+.limit-left { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Category picker in the limit dialog: native checkboxes styled as chips */
+.checks { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.checks legend { padding: 0 0 6px; font-size: 13px; color: var(--text-secondary); }
+form .checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.checks input { width: auto; min-height: 0; margin: 0; }
+form .checks label:has(:checked) { background: var(--action); border-color: var(--action); color: #fff; }
+form .checks label:has(:disabled) { opacity: 0.55; cursor: default; }
+form .checks label:has(:focus-visible) { outline: 2px solid var(--series-1); outline-offset: 2px; }
+
+footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+footer .sub { flex-basis: 100%; }
+
+#status {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  font-size: 14px;
+  cursor: pointer;
+}
+#status.error { background: var(--critical); color: #fff; }
+/* Emptied, not display:none, so the live region stays in the accessibility tree */
+#status:empty { opacity: 0; pointer-events: none; }

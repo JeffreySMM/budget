@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com">
+  <title>Budget</title>
+  <meta name="description" content="Track expenses and see where the money goes.">
+  <meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header class="top">
+      <h1>Budget</h1>
+      <div class="month-nav" role="group" aria-label="Month shown">
+        <button type="button" id="prev-month" class="ghost" aria-label="Previous month">&lsaquo;</button>
+        <input type="month" id="month" aria-label="Month" pattern="\d{4}-\d{2}" placeholder="YYYY-MM">
+        <button type="button" id="next-month" class="ghost" aria-label="Next month">&rsaquo;</button>
+      </div>
+    </header>
+
+    <fieldset id="accounts" class="segmented">
+      <legend class="sr-only">Account</legend>
+    </fieldset>
+
+    <section class="hero" aria-labelledby="hero-label">
+      <p id="hero-label" class="label"><span id="hero-account"></span> · spent in <span id="hero-month"></span></p>
+      <p id="hero-total" class="hero-value"></p>
+      <p id="hero-delta" class="sub"></p>
+      <p id="hero-income" class="sub"></p>
+    </section>
+
+    <section class="card" aria-labelledby="balance-title">
+      <div class="card-head">
+        <h2 id="balance-title">Balance</h2>
+        <button type="button" id="edit-initial">Set initial amount</button>
+      </div>
+      <p id="balance-empty" class="sub">Set an initial amount or add income to see what is left.</p>
+      <div id="balance-set" class="balance" hidden>
+        <p id="balance-left" class="stat"></p>
+        <div class="meter" aria-hidden="true"><div id="balance-fill"></div></div>
+        <p id="balance-detail" class="sub"></p>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="bills-title">
+      <div class="card-head">
+        <h2 id="bills-title">Monthly bills</h2>
+        <button type="button" id="add-bill">Add bill</button>
+      </div>
+      <p id="no-bills" class="sub">List costs that repeat every month, like rent or the phone, to see each month what is paid and what is still due.</p>
+      <ul id="bill-list" class="expenses bills"></ul>
+      <p id="bill-summary" class="sub"></p>
+      <p id="bill-after" class="sub"></p>
+    </section>
+
+    <section class="card" aria-labelledby="limits-title">
+      <div class="card-head">
+        <h2 id="limits-title">Monthly limits</h2>
+        <button type="button" id="add-limit">Add limit</button>
+      </div>
+      <p id="no-limits" class="sub">Set how much you want to spend each month on groceries, eating out or any group of categories, and see how much is left.</p>
+      <ul id="limit-list" class="limits"></ul>
+      <p id="limit-summary" class="sub"></p>
+    </section>
+
+    <section class="card" aria-labelledby="form-title">
+      <h2 id="form-title">Add movement</h2>
+      <form id="expense-form">
+        <fieldset class="segmented kind">
+          <legend class="sr-only">Type</legend>
+          <label><input type="radio" name="kind" value="expense" checked><span>Expense</span></label>
+          <label><input type="radio" name="kind" value="income"><span>Income</span></label>
+        </fieldset>
+        <label>Amount
+          <input name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" required>
+        </label>
+        <label>Category
+          <input name="category" list="categories" maxlength="40" autocomplete="off" required>
+        </label>
+        <label>Date
+          <input name="date" type="date" required>
+        </label>
+        <label>Note
+          <input name="note" maxlength="100" autocomplete="off">
+        </label>
+        <datalist id="categories"></datalist>
+        <div class="actions">
+          <button type="submit" id="save" class="primary">Add</button>
+          <button type="button" id="delete-editing" hidden>Delete</button>
+          <button type="button" id="cancel-edit" hidden>Cancel</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="category-title">
+      <h2 id="category-title">Expenses by category</h2>
+      <table class="bars">
+        <thead class="sr-only">
+          <tr><th scope="col">Category</th><td></td><th scope="col">Amount</th><th scope="col">Share</th></tr>
+        </thead>
+        <tbody id="by-category"></tbody>
+      </table>
+      <p id="no-categories" class="sub">Nothing spent this month.</p>
+    </section>
+
+    <section class="card" aria-labelledby="trend-title">
+      <h2 id="trend-title">Monthly expenses</h2>
+      <p id="trend-range" class="sub"></p>
+      <div id="trend" class="trend">
+        <div id="trend-axis" class="axis" aria-hidden="true"></div>
+        <div id="trend-columns" class="columns"></div>
+      </div>
+      <p id="no-trend" class="sub">Nothing spent in this period.</p>
+    </section>
+
+    <section class="card" aria-labelledby="list-title">
+      <h2 id="list-title">Movements</h2>
+      <ul id="expense-list" class="expenses"></ul>
+      <p id="no-expenses" class="sub">No movements this month.</p>
+    </section>
+
+    <footer>
+      <button type="button" id="export">Export backup</button>
+      <button type="button" id="import">Import backup</button>
+      <button type="button" id="open-sheet">Google Sheet</button>
+      <input type="file" id="import-file" accept="application/json,.json" hidden>
+      <p id="sheet-state" class="sub">Data stays on this device. Export a backup now and then.</p>
+    </footer>
+  </main>
+
+  <dialog id="initial-dialog" aria-labelledby="initial-title">
+    <form method="dialog" id="initial-form">
+      <h2 id="initial-title">Initial amount</h2>
+      <label>Amount you start with
+        <input name="initial" type="number" inputmode="decimal" min="0.01" max="1000000000000" step="0.01">
+      </label>
+      <p class="sub">Income is added to it and expenses are subtracted. Leave empty to remove.</p>
+      <div class="actions">
+        <button type="submit" class="primary">Save</button>
+        <button type="button" id="cancel-initial">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="bill-dialog" aria-labelledby="bill-title">
+    <form method="dialog" id="bill-form">
+      <h2 id="bill-title">Add bill</h2>
+      <label>Category
+        <input name="category" list="bill-categories" maxlength="40" autocomplete="off" required>
+      </label>
+      <label>Amount each month
+        <input name="amount" type="number" inputmode="decimal" min="0.01" max="1000000000000" step="0.01" required>
+      </label>
+      <datalist id="bill-categories"></datalist>
+      <p class="sub">Counts as paid once an expense in this category is recorded for the month. For a bill that varies, enter a typical amount.</p>
+      <div class="actions">
+        <button type="submit" class="primary">Save</button>
+        <button type="button" id="delete-bill" hidden>Delete</button>
+        <button type="button" id="cancel-bill">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="limit-dialog" aria-labelledby="limit-title">
+    <form method="dialog" id="limit-form">
+      <h2 id="limit-title">Add limit</h2>
+      <label>Name
+        <input name="name" maxlength="40" autocomplete="off" placeholder="Personal" required>
+      </label>
+      <label>Limit each month
+        <input name="amount" type="number" inputmode="decimal" min="0.01" max="1000000000000" step="0.01" required>
+      </label>
+      <fieldset id="limit-categories" class="checks">
+        <legend>Categories it covers</legend>
+      </fieldset>
+      <label>Other categories
+        <input name="extra" autocomplete="off" placeholder="Restaurants, Hobbies">
+      </label>
+      <p class="sub">Separate other categories with commas. Each month, expenses in these categories count against the limit. A category can be in one limit only.</p>
+      <div class="actions">
+        <button type="submit" class="primary">Save</button>
+        <button type="button" id="delete-limit" hidden>Delete</button>
+        <button type="button" id="cancel-limit">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="sheet-dialog" aria-labelledby="sheet-title">
+    <form method="dialog" id="sheet-form">
+      <h2 id="sheet-title">Google Sheet sync</h2>
+      <p class="sub">Keeps this device and your Google Sheet in step. Set up the Sheet first: the steps are at the top of apps-script/Code.gs.</p>
+      <label>Web app URL
+        <input name="url" type="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" required>
+      </label>
+      <label>Password
+        <input name="secret" type="password" autocomplete="off" minlength="12" required>
+      </label>
+      <p class="sub">The BUDGET_SECRET value from the script's settings. It is kept on this device and sent only to your script.</p>
+      <div class="actions">
+        <button type="submit" class="primary">Save and sync</button>
+        <button type="button" id="sheet-now" hidden>Sync now</button>
+        <button type="button" id="sheet-disconnect" hidden>Disconnect</button>
+        <button type="button" id="cancel-sheet">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <p id="status" role="status"></p>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
