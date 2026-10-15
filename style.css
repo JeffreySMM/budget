@@ -82,6 +82,11 @@ button { padding: 0 14px; cursor: pointer; }
 /* 16px or more: iPhone Safari zooms into any smaller field when it gets focus,
    and does not zoom back out afterwards. */
 input { width: 100%; min-width: 0; padding: 0 10px; font-size: 16px; }
+/* iPhone Safari draws date and month fields at a size of its own, ignoring the
+   column width, so they spill into the next field. Without the native look they
+   size like every other field; tapping still opens the date picker. */
+input[type="date"], input[type="month"] { -webkit-appearance: none; appearance: none; }
+::-webkit-date-and-time-value { text-align: left; } /* iPhone centres the value */
 button.primary { background: var(--action); border-color: var(--action); color: #fff; font-weight: 600; }
 button.ghost { min-width: 40px; padding: 0; background: none; border-color: transparent; font-size: 20px; }
 :focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
