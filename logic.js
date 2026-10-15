@@ -72,6 +72,23 @@ const isId = id => typeof id === 'string' && id.length > 0 && id.length <= MAX_I
 // Saved categories are trimmed, so a stored "Rent " could never match an expense.
 const isCategoryName = c => typeof c === 'string' && c.length > 0 && c.length <= MAX_CATEGORY && c === c.trim();
 
+// Categories the user adds are joined with | in the Google Sheet, so | cannot be part of one.
+export const isCustomCategoryName = c => isCategoryName(c) && !c.includes('|');
+export const MAX_CUSTOM_CATEGORIES = 100;
+
+/**
+ * Categories the user added, per kind, cleaned. Null when the source has none at
+ * all (an older backup or Sheet), so the caller keeps the ones it already has.
+ * @returns {{ expense: string[], income: string[] } | null}
+ */
+export function cleanCategories(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const clean = list => (Array.isArray(list)
+    ? uniqueIgnoringCase(list.filter(isCustomCategoryName)).slice(0, MAX_CUSTOM_CATEGORIES)
+    : []);
+  return Object.fromEntries(KINDS.map(kind => [kind, clean(value[kind])]));
+}
+
 export function isValidBill(b) {
   return !!b && typeof b === 'object'
     && isId(b.id)
@@ -240,7 +257,8 @@ export function niceMax(value) {
 
 /**
  * Everything the app stores, in one object: what a backup file and the Google Sheet hold.
- * @typedef {{ initials: Record<string, number | null>, bills: Bill[], limits: Limit[], expenses: Movement[] }} Snapshot
+ * @typedef {{ initials: Record<string, number | null>, bills: Bill[], limits: Limit[], expenses: Movement[],
+ *   categories: { expense: string[], income: string[] } | null }} Snapshot categories: the ones the user added
  */
 
 /**
@@ -261,7 +279,8 @@ export function cleanSnapshot(parsed) {
     .map(({ id, name, cents, categories, account }) => ({ id, name, cents, categories: [...categories], account }));
   const invalid = backup.rows.length - expenses.length + backup.bills.length - bills.length
     + backup.limits.length - limits.length;
-  return { snapshot: { initials: backup.initials, bills, limits, expenses }, invalid };
+  const categories = cleanCategories(parsed.categories);
+  return { snapshot: { initials: backup.initials, bills, limits, expenses, categories }, invalid };
 }
 
 // Everything in `local` is kept as it is; `remote` only adds what local lacks.
@@ -272,6 +291,11 @@ export function mergeSnapshots(local, remote) {
     bills: mergeBills(local.bills, remote.bills),
     limits: mergeLimits(local.limits, remote.limits),
     expenses: mergeById(local.expenses, remote.expenses),
+    // Added categories from both sides; a side without any (null) adds nothing.
+    categories: Object.fromEntries(KINDS.map(kind => [kind, uniqueIgnoringCase([
+      ...(local.categories?.[kind] ?? []),
+      ...(remote.categories?.[kind] ?? []),
+    ]).slice(0, MAX_CUSTOM_CATEGORIES)])),
   };
 }
 

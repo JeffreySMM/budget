@@ -107,7 +107,9 @@ async function reconcile(settings, retriesLeft) {
   const isLocalChanged = hashText(JSON.stringify(local)) !== settings.hash;
   let state = settings;
   if (cleaned && remote.version !== settings.version) {
-    const next = isLocalChanged ? mergeSnapshots(local, cleaned.snapshot) : cleaned.snapshot;
+    // A Sheet written by an older script has no categories: keep the ones here.
+    const incoming = { ...cleaned.snapshot, categories: cleaned.snapshot.categories ?? local.categories };
+    const next = isLocalChanged ? mergeSnapshots(local, incoming) : incoming;
     if (!app.writeSnapshot(next)) throw new Error('could not save the Sheet data on this device');
     // Saved at once, so a push that fails below does not make every retry merge
     // and redraw again. The hash moves only if nothing here was waiting to be sent.

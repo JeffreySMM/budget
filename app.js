@@ -7,6 +7,7 @@ import {
   cleanSnapshot, mergeSnapshots,
 } from './logic.js';
 import { startSheetSync, scheduleSheetSync } from './sheet.js';
+import { knownCategories, readCategories, CATEGORIES_KEY, startCategoryManager } from './categories.js';
 
 const STORAGE_KEY = 'expenses'; // name predates income; holds every movement
 const BILLS_KEY = 'bills';
@@ -19,10 +20,6 @@ const STATUS_MS = 4000;
 const ERROR_MS = 10000;
 const REVOKE_URL_MS = 10000;
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
-const DEFAULT_CATEGORIES = {
-  expense: ['Food', 'Groceries', 'Transport', 'Housing', 'Utilities', 'Health', 'Fun', 'Shopping', 'Other'],
-  income: ['Salary', 'Bonus', 'Interest', 'Gift', 'Refund', 'Other'],
-};
 
 const $ = id => document.getElementById(id);
 const form = $('expense-form');
@@ -157,15 +154,17 @@ const readSnapshot = () => ({
   bills: readBills(),
   limits: readLimits(),
   expenses: readStored(),
+  categories: readCategories(),
 });
 
 // Replaces everything stored, all or nothing: if a write fails (storage full,
 // already reported by writeItem), the earlier ones are undone, so a mix of old
 // and new data is never left behind, or sent to the Sheet.
 function writeSnapshot(snapshot) {
-  const keys = [STORAGE_KEY, BILLS_KEY, LIMITS_KEY, ...Object.keys(ACCOUNTS).map(initialKey)];
+  const keys = [STORAGE_KEY, BILLS_KEY, LIMITS_KEY, CATEGORIES_KEY, ...Object.keys(ACCOUNTS).map(initialKey)];
   const previous = keys.map(key => [key, localStorage.getItem(key)]);
   const isWritten = writeStored(snapshot.expenses) && writeBills(snapshot.bills) && writeLimits(snapshot.limits)
+    && writeItem(CATEGORIES_KEY, JSON.stringify(snapshot.categories ?? readCategories()))
     && Object.entries(snapshot.initials).every(([account, cents]) => writeInitial(account, cents));
   if (!isWritten) {
     previous.forEach(([key, value]) => {
@@ -186,10 +185,6 @@ const leftText = left => (left < 0 ? `Over by ${money(-left)}` : `${money(left)}
 // U+2212 minus: reads as "minus" to screen readers, unlike a hyphen.
 const signedMoney = movement => `${isIncome(movement) ? '+' : '−'}${money(movement.cents)}`;
 
-const knownCategories = (movements, kind) => [...new Set([
-  ...movements.filter(m => m.kind === kind).map(m => m.category),
-  ...DEFAULT_CATEGORIES[kind],
-])];
 
 function renderHero(expenses, monthIncome) {
   $('hero-income').textContent = monthIncome > 0 ? `Income ${money(monthIncome)}` : '';
@@ -719,4 +714,5 @@ $('accounts').addEventListener('change', event => selectAccount(event.target.val
 
 resetForm();
 render();
+startCategoryManager({ readStored, writeItem, render, rejectField, el, formKind: () => form.elements.kind.value });
 startSheetSync({ readSnapshot, writeSnapshot, render, showStatus, rejectField, writeItem });

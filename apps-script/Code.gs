@@ -43,8 +43,9 @@ const TABS = {
   Limits: ['id', 'name', 'amount', 'categories', 'account'],
   Settings: ['key', 'value'],
 };
-// Money columns stay numbers so they can be summed in the Sheet; all others are stored as text.
-const NUMBER_COLUMNS = ['amount', 'value'];
+// Amounts stay numbers so they can be summed in the Sheet. Everything else, Settings
+// values included, is stored as text so Sheets never turns it into a date or number.
+const NUMBER_COLUMNS = ['amount'];
 const CATEGORY_SEPARATOR = ' | ';
 const LOCK_TIMEOUT_MS = 30000;
 
@@ -108,9 +109,27 @@ function rowsFor(data) {
     }),
     Settings: ACCOUNTS.map(account => {
       const cents = data.initials[account];
-      return ['initial.' + account, cents === null || cents === undefined ? '' : amount(cents)];
-    }),
+      // Written as text like "40000" so a Sheet set to a comma-decimal locale cannot reformat it.
+      return ['initial.' + account, cents === null || cents === undefined ? '' : String(amount(cents))];
+    }).concat(categoryRows(data.categories)),
   };
+}
+
+// No categories sent (an older version of the app): no rows, so the Sheet reports none
+// and every device keeps the ones it has.
+function categoryRows(categories) {
+  if (categories === undefined || categories === null) return [];
+  if (!Array.isArray(categories.expense) || !Array.isArray(categories.income)) {
+    throw new Error('the data sent has categories of the wrong shape');
+  }
+  return [
+    ['categories.expense', categories.expense.join(CATEGORY_SEPARATOR)],
+    ['categories.income', categories.income.join(CATEGORY_SEPARATOR)],
+  ];
+}
+
+function splitList(value) {
+  return text(value).split(CATEGORY_SEPARATOR.trim()).map(c => c.trim()).filter(c => c !== '');
 }
 
 // The version is a digest of the content, so edits made by hand in the Sheet count as changes too.
@@ -144,10 +163,19 @@ function readAll() {
       id: text(row.id),
       name: text(row.name),
       cents: toCents(row.amount),
-      categories: text(row.categories).split(CATEGORY_SEPARATOR.trim()).map(c => c.trim()).filter(c => c !== ''),
+      categories: splitList(row.categories),
       account: text(row.account),
     })),
   };
+  // Only when the Settings tab has them: a Sheet written before categories existed
+  // reports none, and the app then keeps the ones it has.
+  const has = key => Object.prototype.hasOwnProperty.call(settings, key);
+  if (has('categories.expense') || has('categories.income')) {
+    data.categories = {
+      expense: splitList(settings['categories.expense']),
+      income: splitList(settings['categories.income']),
+    };
+  }
   return { version: digest(JSON.stringify(data)), data: data };
 }
 

@@ -5,7 +5,7 @@ import {
   totalsByCategory, totalsByMonth, windowEnd, mergeById, niceMax, isValidInitial, readBackup,
   withDefaults, sumCents, balance, isValidBill, billStatus, mergeBills,
   isValidLimit, limitStatus, findCategoryClash, mergeLimits, uniqueIgnoringCase,
-  cleanSnapshot, mergeSnapshots, hashText, isSheetUrl,
+  cleanSnapshot, mergeSnapshots, hashText, isSheetUrl, cleanCategories, isCustomCategoryName,
 } from './logic.js';
 
 const expense = (over = {}) => ({ id: 'a', date: '2026-10-09', cents: 1250, category: 'Food', note: '', ...over });
@@ -246,6 +246,35 @@ assert.deepEqual(mergedSnapshot.initials, { spending: 1, savings: 3 });
 assert.deepEqual(mergedSnapshot.bills.map(b => b.id), ['r', 'ph']);
 assert.deepEqual(mergedSnapshot.limits.map(l => l.id), ['g']);
 assert.deepEqual(mergedSnapshot.expenses.map(e => [e.id, e.cents]), [['a', 1], ['b', 1250]]);
+
+// Custom categories: cleaned like everything else; null when a source has none at all,
+// so an older backup or Sheet never wipes the categories a device already has
+assert.equal(isCustomCategoryName('Coffee'), true);
+assert.equal(isCustomCategoryName('A|B'), false); // | separates categories in the Sheet
+assert.equal(isCustomCategoryName(' Pad'), false);
+assert.equal(cleanCategories(undefined), null);
+assert.equal(cleanCategories(['Coffee']), null);
+assert.deepEqual(
+  cleanCategories({ expense: ['Coffee', 'coffee', ' Pad', 'A|B', 7, ''], income: 'Tips' }),
+  { expense: ['Coffee'], income: [] },
+);
+assert.equal(cleanSnapshot([expense()]).snapshot.categories, null); // bare-array backup
+assert.deepEqual(
+  cleanSnapshot({ expenses: [], categories: { income: ['Tips'] } }).snapshot.categories,
+  { expense: [], income: ['Tips'] },
+);
+const base = { initials: { spending: null, savings: null }, bills: [], limits: [], expenses: [] };
+assert.deepEqual(
+  mergeSnapshots(
+    { ...base, categories: { expense: ['Coffee'], income: [] } },
+    { ...base, categories: { expense: ['coffee', 'Pets'], income: ['Tips'] } },
+  ).categories,
+  { expense: ['Coffee', 'Pets'], income: ['Tips'] },
+);
+assert.deepEqual(
+  mergeSnapshots({ ...base, categories: { expense: ['Coffee'], income: [] } }, { ...base, categories: null }).categories,
+  { expense: ['Coffee'], income: [] },
+);
 
 // hashText: same text, same number; any change, different number
 assert.equal(hashText('{"a":1}'), hashText('{"a":1}'));

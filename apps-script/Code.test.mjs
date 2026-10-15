@@ -117,6 +117,16 @@ function runChecks() {
   assert.notEqual(edited.version, pushed.version);
   assert.deepEqual(edited.data.expenses[0], { id: 'm1', date: '2026-10-11', cents: 1250, category: 'Food', note: 'lunch, "with quotes"' });
 
+  // Custom categories travel in the Settings tab. A Sheet written without them reports
+  // none at all, so the app keeps the categories it has.
+  assert.equal('categories' in edited.data, false);
+  const withCategories = { ...snapshot, categories: { expense: ['Coffee', '3/4'], income: ['Tips'] } };
+  assert.equal(post({ secret, action: 'push', baseVersion: edited.version, data: withCategories }).ok, true);
+  const withCategoriesPulled = post({ secret, action: 'pull' });
+  assert.deepEqual(withCategoriesPulled.data.categories, withCategories.categories);
+  const badCategories = { ...snapshot, categories: { expense: 'Coffee' } };
+  assert.match(post({ secret, action: 'push', baseVersion: withCategoriesPulled.version, data: badCategories }).error, /categories/);
+
   // A missing password property is reported, not treated as "no password"
   assert.match(loadScript(null).post({ secret: '', action: 'pull' }).error, /BUDGET_SECRET/);
 

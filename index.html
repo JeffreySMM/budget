@@ -70,7 +70,10 @@
     </section>
 
     <section class="card" aria-labelledby="form-title">
-      <h2 id="form-title">Add movement</h2>
+      <div class="card-head">
+        <h2 id="form-title">Add movement</h2>
+        <button type="button" id="open-categories">Categories</button>
+      </div>
       <form id="expense-form">
         <fieldset class="segmented kind">
           <legend class="sr-only">Type</legend>
@@ -81,7 +84,7 @@
           <input name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" required>
         </label>
         <label>Category
-          <input name="category" list="categories" maxlength="40" autocomplete="off" required>
+          <input name="category" list="categories" maxlength="40" autocomplete="off" placeholder="Pick or type" required>
         </label>
         <label>Date
           <input name="date" type="date" required>
@@ -207,6 +210,28 @@
         <button type="button" id="sheet-now" hidden>Sync now</button>
         <button type="button" id="sheet-disconnect" hidden>Disconnect</button>
         <button type="button" id="cancel-sheet">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="categories-dialog" aria-labelledby="categories-title">
+    <form method="dialog" id="categories-form">
+      <h2 id="categories-title">Categories</h2>
+      <fieldset class="segmented kind">
+        <legend class="sr-only">Type</legend>
+        <label><input type="radio" name="kind" value="expense" checked><span>Expense</span></label>
+        <label><input type="radio" name="kind" value="income"><span>Income</span></label>
+      </fieldset>
+      <label>New category
+        <input name="name" maxlength="40" autocomplete="off" placeholder="Restaurants">
+      </label>
+      <div class="actions">
+        <button type="submit" class="primary">Add category</button>
+      </div>
+      <ul id="category-list" class="chips" aria-label="Current categories"></ul>
+      <p class="sub">New categories show up as suggestions when you add a movement, a bill or a limit. You can remove one you added while no entry uses it.</p>
+      <div class="actions">
+        <button type="button" id="close-categories">Done</button>
       </div>
     </form>
   </dialog>
