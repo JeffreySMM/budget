@@ -420,15 +420,26 @@ function startEdit(movement) {
   form.elements.amount.focus();
 }
 
-// Pay fills the form instead of saving at once, so a bill that varies
-// (electricity) can be corrected, and the date checked, before it is recorded.
+// Pay records the bill as an expense at once: dated today, or the 1st when paying
+// a month other than the current one. A bill that varies (electricity) is corrected
+// afterwards by editing the movement in the list.
 function payBill(bill) {
-  resetForm();
-  form.elements.amount.value = String(bill.cents / 100);
-  form.elements.category.value = bill.category;
-  if (selectedMonth !== today().slice(0, 7)) form.elements.date.value = `${selectedMonth}-01`;
-  form.scrollIntoView({ block: 'center' });
-  $('save').focus();
+  const payment = {
+    id: newId(),
+    account: bill.account,
+    kind: 'expense',
+    date: selectedMonth === today().slice(0, 7) ? today() : `${selectedMonth}-01`,
+    cents: bill.cents,
+    category: bill.category,
+    note: '',
+  };
+  // The Pay button disappears when its row turns to Paid; keep keyboard focus in the list.
+  const hadFocus = $('bill-list').contains(document.activeElement);
+  if (!writeStored([...readStored(), payment])) return;
+  navigator.storage?.persist?.(); // ask the browser not to evict the data
+  render();
+  if (hadFocus) ($('bill-list').querySelector('button.status') ?? $('add-bill')).focus();
+  showStatus(`Paid ${payment.category} ${signedMoney(payment)}`);
 }
 
 function openBillDialog(bill = null) {
