@@ -4,7 +4,7 @@
 const CACHE = 'budget-shell';
 const NETWORK_TIMEOUT_MS = 4000;
 const SHELL = [
-  './', 'index.html', 'style.css', 'app.js', 'logic.js', 'sheet.js', 'categories.js',
+  './', 'index.html', 'style.css', 'app.js', 'logic.js', 'sheet.js', 'categories.js', 'ui.js', 'store.js',
   'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png',
 ];
 

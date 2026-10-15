@@ -16,6 +16,7 @@ const SETTINGS_KEY = 'sync';
 const TIMEOUT_MS = 20000;
 const PUSH_DELAY_MS = 2000;
 const CONFLICT_RETRIES = 2;
+const TRANSFERS_SCHEMA = 2; // the first script version that stores transfers
 const LOCAL_ONLY_TEXT = 'Data stays on this device. Export a backup now and then.';
 
 const $ = id => document.getElementById(id);
@@ -49,10 +50,13 @@ async function call(settings, request) {
   return reply;
 }
 
-/** @returns {Promise<{ version: string, data: unknown }>} data is null for a Sheet never synced */
+/**
+ * @returns {Promise<{ version: string, data: unknown, schema: number }>} data is null for a
+ *   Sheet never synced; schema is 1 for scripts older than transfers
+ */
 async function pull(settings) {
   const reply = await call(settings, { action: 'pull' });
-  return { version: String(reply.version ?? ''), data: reply.data ?? null };
+  return { version: String(reply.version ?? ''), data: reply.data ?? null, schema: Number(reply.schema) || 1 };
 }
 
 /**
@@ -95,6 +99,10 @@ export function scheduleSheetSync() {
 // Reads the Sheet, takes in what changed there, and sends what changed here.
 async function reconcile(settings, retriesLeft) {
   const remote = await pull(settings);
+  // An older script has no column for where a transfer goes, so it would lose it.
+  if (remote.schema < TRANSFERS_SCHEMA && app.readSnapshot().expenses.some(m => m.kind === 'transfer')) {
+    throw new Error('transfers need the latest Apps Script: paste the new Code.gs and deploy a new version');
+  }
   const cleaned = remote.data === null ? null : cleanSnapshot(remote.data);
   if (remote.data !== null && !cleaned) throw new Error('the Sheet data could not be read');
   // Pushing would overwrite rows that could not be read, so stop until they are fixed.

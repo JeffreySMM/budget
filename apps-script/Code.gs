@@ -36,9 +36,12 @@
  */
 
 const SECRET_PROPERTY = 'BUDGET_SECRET';
+// Sent with every reply. 2: knows transfers (toAccount); the app will not send
+// transfers to a script that does not say so, since it would drop where they go.
+const SCHEMA = 2;
 const ACCOUNTS = ['spending', 'savings']; // must match ACCOUNTS in logic.js
 const TABS = {
-  Movements: ['id', 'date', 'amount', 'kind', 'account', 'category', 'note'],
+  Movements: ['id', 'date', 'amount', 'kind', 'account', 'toAccount', 'category', 'note'],
   Bills: ['id', 'category', 'amount', 'account'],
   Limits: ['id', 'name', 'amount', 'categories', 'account'],
   Settings: ['key', 'value'],
@@ -61,7 +64,7 @@ function doPost(event) {
     const lock = LockService.getScriptLock();
     lock.waitLock(LOCK_TIMEOUT_MS);
     try {
-      if (request.action === 'pull') return reply(Object.assign({ ok: true }, readAll()));
+      if (request.action === 'pull') return reply(Object.assign({ ok: true, schema: SCHEMA }, readAll()));
       if (request.action === 'push') return reply(push(request));
       return reply({ ok: false, error: 'unknown action' });
     } finally {
@@ -86,7 +89,7 @@ function push(request) {
   Object.keys(tabs).forEach(name => writeTab(name, tabs[name]));
   // Make the writes visible before the lock is released, so the next request reads them.
   SpreadsheetApp.flush();
-  return { ok: true, version: readAll().version };
+  return { ok: true, schema: SCHEMA, version: readAll().version };
 }
 
 // All rows are built and checked first, so a malformed request cannot leave the
@@ -101,7 +104,7 @@ function rowsFor(data) {
     return toAmount(cents);
   };
   return {
-    Movements: data.expenses.map(m => [m.id, m.date, amount(m.cents), m.kind, m.account, m.category, m.note]),
+    Movements: data.expenses.map(m => [m.id, m.date, amount(m.cents), m.kind, m.account, m.toAccount || '', m.category, m.note]),
     Bills: data.bills.map(b => [b.id, b.category, amount(b.cents), b.account]),
     Limits: data.limits.map(l => {
       if (!isList(l.categories)) throw new Error('the data sent has a limit without categories');
@@ -150,6 +153,7 @@ function readAll() {
       cents: toCents(row.amount),
       kind: text(row.kind) || undefined, // blank: the app treats it as an expense
       account: text(row.account) || undefined, // blank: the app puts it in Spending
+      toAccount: text(row.toAccount) || undefined, // transfers only
       category: text(row.category),
       note: text(row.note),
     })),

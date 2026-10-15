@@ -48,17 +48,6 @@
       </div>
     </section>
 
-    <section class="card" aria-labelledby="bills-title">
-      <div class="card-head">
-        <h2 id="bills-title">Monthly bills</h2>
-        <button type="button" id="add-bill">Add bill</button>
-      </div>
-      <p id="no-bills" class="sub">List costs that repeat every month, like rent or the phone, to see each month what is paid and what is still due.</p>
-      <ul id="bill-list" class="expenses bills"></ul>
-      <p id="bill-summary" class="sub"></p>
-      <p id="bill-after" class="sub"></p>
-    </section>
-
     <section class="card" aria-labelledby="limits-title">
       <div class="card-head">
         <h2 id="limits-title">Monthly limits</h2>
@@ -69,36 +58,15 @@
       <p id="limit-summary" class="sub"></p>
     </section>
 
-    <section class="card" aria-labelledby="form-title">
+    <section class="card" aria-labelledby="bills-title">
       <div class="card-head">
-        <h2 id="form-title">Add movement</h2>
-        <button type="button" id="open-categories">Categories</button>
+        <h2 id="bills-title">Monthly bills</h2>
+        <button type="button" id="add-bill">Add bill</button>
       </div>
-      <form id="expense-form">
-        <fieldset class="segmented kind">
-          <legend class="sr-only">Type</legend>
-          <label><input type="radio" name="kind" value="expense" checked><span>Expense</span></label>
-          <label><input type="radio" name="kind" value="income"><span>Income</span></label>
-        </fieldset>
-        <label>Amount
-          <input name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" required>
-        </label>
-        <label>Category
-          <input name="category" list="categories" maxlength="40" autocomplete="off" placeholder="Pick or type" required>
-        </label>
-        <label>Date
-          <input name="date" type="date" required>
-        </label>
-        <label>Note
-          <input name="note" maxlength="100" autocomplete="off">
-        </label>
-        <datalist id="categories"></datalist>
-        <div class="actions">
-          <button type="submit" id="save" class="primary">Add</button>
-          <button type="button" id="delete-editing" hidden>Delete</button>
-          <button type="button" id="cancel-edit" hidden>Cancel</button>
-        </div>
-      </form>
+      <p id="no-bills" class="sub">List costs that repeat every month, like rent or the phone, to see each month what is paid and what is still due.</p>
+      <ul id="bill-list" class="expenses bills"></ul>
+      <p id="bill-summary" class="sub"></p>
+      <p id="bill-after" class="sub"></p>
     </section>
 
     <section class="card" aria-labelledby="category-title">
@@ -124,8 +92,8 @@
 
     <section class="card" aria-labelledby="list-title">
       <h2 id="list-title">Movements</h2>
-      <ul id="expense-list" class="expenses"></ul>
-      <p id="no-expenses" class="sub">No movements this month.</p>
+      <ul id="expense-list" class="movements"></ul>
+      <p id="no-expenses" class="sub">No movements this month. Tap + to add one.</p>
     </section>
 
     <footer>
@@ -136,6 +104,44 @@
       <p id="sheet-state" class="sub">Data stays on this device. Export a backup now and then.</p>
     </footer>
   </main>
+
+  <button type="button" id="open-add" class="fab" aria-label="Add movement">+</button>
+  <!-- Right after the add button, so its Undo is one Tab away from where focus lands. -->
+  <p id="status" role="status" popover="manual"></p>
+
+  <dialog id="movement-dialog" aria-labelledby="form-title">
+    <div class="card-head">
+      <h2 id="form-title">Add movement</h2>
+      <button type="button" id="open-categories">Categories</button>
+    </div>
+    <form id="expense-form">
+      <fieldset class="segmented kind">
+        <legend class="sr-only">Type</legend>
+        <label><input type="radio" name="kind" value="expense" checked><span>Expense</span></label>
+        <label><input type="radio" name="kind" value="income"><span>Income</span></label>
+        <label><input type="radio" name="kind" value="transfer"><span>Transfer</span></label>
+      </fieldset>
+      <p id="transfer-hint" class="sub" hidden></p>
+      <label>Amount
+        <input name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" required>
+      </label>
+      <label id="category-field">Category
+        <input name="category" list="categories" maxlength="40" autocomplete="off" placeholder="Pick or type" required>
+      </label>
+      <label>Date
+        <input name="date" type="date" required>
+      </label>
+      <label>Note
+        <input name="note" maxlength="100" autocomplete="off">
+      </label>
+      <datalist id="categories"></datalist>
+      <div class="actions">
+        <button type="submit" id="save" class="primary">Add</button>
+        <button type="button" id="delete-editing" hidden>Delete</button>
+        <button type="button" id="cancel-movement">Cancel</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="initial-dialog" aria-labelledby="initial-title">
     <form method="dialog" id="initial-form">
@@ -236,7 +242,6 @@
     </form>
   </dialog>
 
-  <p id="status" role="status"></p>
   <script type="module" src="app.js"></script>
 </body>
 </html>

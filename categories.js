@@ -27,10 +27,11 @@ export function readCategories() {
   }
 }
 
+// Transfers have no categories: they get none.
 export const knownCategories = (movements, kind) => uniqueIgnoringCase([
   ...movements.filter(m => m.kind === kind).map(m => m.category),
-  ...readCategories()[kind],
-  ...DEFAULT_CATEGORIES[kind],
+  ...(readCategories()[kind] ?? []),
+  ...(DEFAULT_CATEGORIES[kind] ?? []),
 ]);
 
 const form = () => $('categories-form');

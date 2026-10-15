@@ -1,30 +1,28 @@
 import {
   MAX_CATEGORY, MAX_NOTE, parseAmount, isValidMovement, normalizeCategory, shiftMonth,
-  totalsByCategory, totalsByMonth, windowEnd, niceMax, isValidInitial,
-  ACCOUNTS, DEFAULT_ACCOUNT, withDefaults, sumCents, isIncome, isExpense, balance,
+  totalsByCategory, totalsByMonth, windowEnd, niceMax,
+  ACCOUNTS, DEFAULT_ACCOUNT, sumCents, isIncome, isExpense, isTransfer, balance,
   isValidBill, billStatus, isSameBillSlot,
   isValidLimit, limitStatus, findCategoryClash, uniqueIgnoringCase,
   cleanSnapshot, mergeSnapshots,
 } from './logic.js';
+import { $, el, showStatus, rejectField } from './ui.js';
+import {
+  readStored, readBills, readLimits, writeItem, writeStored, writeBills, writeLimits,
+  readInitial, saveInitial, readSnapshot, writeSnapshot,
+} from './store.js';
 import { startSheetSync, scheduleSheetSync } from './sheet.js';
-import { knownCategories, readCategories, CATEGORIES_KEY, startCategoryManager } from './categories.js';
+import { knownCategories, startCategoryManager } from './categories.js';
 
-const STORAGE_KEY = 'expenses'; // name predates income; holds every movement
-const BILLS_KEY = 'bills';
-const LIMITS_KEY = 'limits';
-// Spending keeps the original key, so an amount saved before accounts existed still applies.
-const initialKey = account => (account === DEFAULT_ACCOUNT ? 'initialCents' : `initialCents.${account}`);
 const TREND_MONTHS = 12;
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
-const STATUS_MS = 4000;
-const ERROR_MS = 10000;
 const REVOKE_URL_MS = 10000;
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+const TRANSFER_CATEGORY = 'Transfer';
 
-const $ = id => document.getElementById(id);
 const form = $('expense-form');
+const movementDialog = $('movement-dialog');
 const monthInput = $('month');
-const statusBox = $('status');
 const initialDialog = $('initial-dialog');
 const initialInput = $('initial-form').elements.initial;
 const billDialog = $('bill-dialog');
@@ -34,15 +32,6 @@ const limitForm = $('limit-form');
 
 let selectedMonth = today().slice(0, 7);
 let selectedAccount = DEFAULT_ACCOUNT;
-let statusTimer = 0;
-
-// Every piece of user text goes through here as a property (textContent),
-// never as markup.
-function el(tag, props = {}, ...children) {
-  const node = Object.assign(document.createElement(tag), props);
-  node.append(...children.filter(Boolean));
-  return node;
-}
 
 function today() {
   const now = new Date();
@@ -66,134 +55,43 @@ const longMonth = month => formatDate(`${month}-01`, { month: 'long', year: 'num
 const shortMonth = month => formatDate(`${month}-01`, { month: 'short' });
 const shortMonthYear = month => formatDate(`${month}-01`, { month: 'short', year: 'numeric' });
 
-// The live region stays in the page and is emptied, not hidden, so screen
-// readers announce each message. Everything fades on its own; a tap is faster.
-function clearStatus() {
-  clearTimeout(statusTimer);
-  statusBox.textContent = '';
-}
-
-function showStatus(message, isError = false) {
-  clearStatus();
-  statusBox.textContent = message;
-  statusBox.classList.toggle('error', isError);
-  statusTimer = setTimeout(clearStatus, isError ? ERROR_MS : STATUS_MS);
-}
-
-// ponytail: localStorage, whole list re-read on every render and before every
-// write (so two open tabs cannot overwrite each other). Good to roughly 5 MB,
-// tens of thousands of movements; move to IndexedDB if it gets slow or full.
-function readList(key, isValid, normalize) {
-  const raw = localStorage.getItem(key);
-  if (raw === null) return [];
-  let parsed = null;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = null;
-  }
-  if (Array.isArray(parsed) && parsed.every(isValid)) return parsed.map(normalize);
-
-  // Damaged data: park the original under its own key before anything can
-  // overwrite it. If that fails, the throw stops the app with the data intact.
-  const backupKey = `${key}.damaged.${Date.now()}`;
-  localStorage.setItem(backupKey, raw);
-  const salvaged = Array.isArray(parsed) ? parsed.filter(isValid).map(normalize) : [];
-  localStorage.setItem(key, JSON.stringify(salvaged));
-  // Blocking on purpose: too important to be a toast the next message replaces.
-  alert(`Stored ${key} data was damaged. Kept ${salvaged.length} records; the original is saved in this browser as "${backupKey}".`);
-  return salvaged;
-}
-
-const readStored = () => readList(STORAGE_KEY, isValidMovement, withDefaults);
-const readBills = () => readList(BILLS_KEY, isValidBill, bill => bill);
-const readLimits = () => readList(LIMITS_KEY, isValidLimit, limit => limit);
-
-function writeItem(key, value) {
-  try {
-    localStorage.setItem(key, value);
-    return true;
-  } catch (error) {
-    showStatus(`Could not save: ${error.message}`, true);
-    return false;
-  }
-}
-
-const writeStored = movements => writeItem(STORAGE_KEY, JSON.stringify(movements));
-const writeBills = bills => writeItem(BILLS_KEY, JSON.stringify(bills));
-const writeLimits = limits => writeItem(LIMITS_KEY, JSON.stringify(limits));
-
-// The starting amount an account's expenses are subtracted from; null until the user sets one.
-function readInitial(account) {
-  const cents = Number(localStorage.getItem(initialKey(account)));
-  return isValidInitial(cents) ? cents : null;
-}
-
-function writeInitial(account, cents) {
-  if (cents === null) {
-    localStorage.removeItem(initialKey(account));
-    return true;
-  }
-  return writeItem(initialKey(account), String(cents));
-}
-
-// An empty field removes the initial amount.
-function saveInitial(account, raw) {
-  if (raw.trim() === '') return writeInitial(account, null);
-  const cents = parseAmount(raw);
-  if (cents === null) {
-    showStatus('Enter an initial amount above zero.', true);
-    return false;
-  }
-  return writeInitial(account, cents);
-}
-
-/** @returns {import('./logic.js').Snapshot} everything stored, as in a backup file */
-const readSnapshot = () => ({
-  initials: Object.fromEntries(Object.keys(ACCOUNTS).map(account => [account, readInitial(account)])),
-  bills: readBills(),
-  limits: readLimits(),
-  expenses: readStored(),
-  categories: readCategories(),
-});
-
-// Replaces everything stored, all or nothing: if a write fails (storage full,
-// already reported by writeItem), the earlier ones are undone, so a mix of old
-// and new data is never left behind, or sent to the Sheet.
-function writeSnapshot(snapshot) {
-  const keys = [STORAGE_KEY, BILLS_KEY, LIMITS_KEY, CATEGORIES_KEY, ...Object.keys(ACCOUNTS).map(initialKey)];
-  const previous = keys.map(key => [key, localStorage.getItem(key)]);
-  const isWritten = writeStored(snapshot.expenses) && writeBills(snapshot.bills) && writeLimits(snapshot.limits)
-    && writeItem(CATEGORIES_KEY, JSON.stringify(snapshot.categories ?? readCategories()))
-    && Object.entries(snapshot.initials).every(([account, cents]) => writeInitial(account, cents));
-  if (!isWritten) {
-    previous.forEach(([key, value]) => {
-      if (value === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, value);
-    });
-  }
-  return isWritten;
-}
-
 // Balances count every movement of the account, whatever month is selected.
 function balanceOf(account, movements) {
   const initial = readInitial(account);
-  return { initial, ...balance(initial, movements.filter(m => m.account === account)) };
+  return { initial, ...balance(initial, movements, account) };
 }
 
 const leftText = left => (left < 0 ? `Over by ${money(-left)}` : `${money(left)} left`);
-// U+2212 minus: reads as "minus" to screen readers, unlike a hyphen.
-const signedMoney = movement => `${isIncome(movement) ? '+' : '−'}${money(movement.cents)}`;
+const otherAccount = account => Object.keys(ACCOUNTS).find(other => other !== account);
 
+// Seen from `account`: a transfer is money out of one account and into the other.
+// U+2212 minus: reads as "minus" to screen readers, unlike a hyphen.
+function signedMoney(movement, account = movement.account) {
+  const isMoneyIn = isIncome(movement) || (isTransfer(movement) && movement.toAccount === account);
+  return `${isMoneyIn ? '+' : '−'}${money(movement.cents)}`;
+}
+
+// What a movement is called in lists and messages: a transfer says where the money went.
+function titleOf(movement, account = movement.account) {
+  if (!isTransfer(movement)) return movement.category;
+  return movement.toAccount === account ? `From ${ACCOUNTS[movement.account]}` : `To ${ACCOUNTS[movement.toAccount]}`;
+}
+
+function amountClassOf(movement) {
+  if (isTransfer(movement)) return 'num transfer';
+  return isIncome(movement) ? 'num income' : 'num';
+}
 
 function renderHero(expenses, monthIncome) {
   $('hero-income').textContent = monthIncome > 0 ? `Income ${money(monthIncome)}` : '';
   const [previous, current] = totalsByMonth(expenses, selectedMonth, 2);
   const difference = current.cents - previous.cents;
   const direction = difference > 0 ? 'more than' : 'less than';
+  const isNothingYet = current.cents === 0;
   $('hero-account').textContent = ACCOUNTS[selectedAccount];
   $('hero-month').textContent = longMonth(selectedMonth);
-  $('hero-total').textContent = money(current.cents);
+  $('hero-total').textContent = isNothingYet ? 'Nothing yet' : money(current.cents);
+  $('hero-total').classList.toggle('is-empty', isNothingYet);
   $('hero-delta').textContent = previous.cents === 0 ? ''
     : difference === 0 ? `Same as ${shortMonth(previous.month)}`
     : `${money(Math.abs(difference))} ${direction} ${shortMonth(previous.month)}`;
@@ -202,15 +100,24 @@ function renderHero(expenses, monthIncome) {
 // Each switch segment carries its account's balance, so both are visible at once.
 function renderAccountNotes(movements) {
   Object.keys(ACCOUNTS).forEach(account => {
-    const { available, left } = balanceOf(account, movements);
-    $(`account-note-${account}`).textContent = available > 0 ? leftText(left) : 'No balance yet';
+    const { hasBalance, left } = balanceOf(account, movements);
+    $(`account-note-${account}`).textContent = hasBalance ? leftText(left) : 'No balance yet';
   });
 }
 
-// A balance needs money to measure against: an initial amount, income, or both.
+// Where the money came from, once there is more than an initial amount.
+function balanceSources(initial, income, movedIn, movedOut) {
+  if (income + movedIn + movedOut === 0) return '';
+  const parts = [`initial ${money(initial ?? 0)}`];
+  if (income > 0) parts.push(`+ income ${money(income)}`);
+  if (movedIn > 0) parts.push(`+ moved in ${money(movedIn)}`);
+  if (movedOut > 0) parts.push(`− moved out ${money(movedOut)}`);
+  return ` (${parts.join(' ')})`;
+}
+
+// A balance needs something to measure against: an initial amount, income or transfers.
 function renderBalance(movements) {
-  const { initial, income, spent, available, left } = balanceOf(selectedAccount, movements);
-  const hasBalance = available > 0;
+  const { initial, income, spent, movedIn, movedOut, available, left, hasBalance } = balanceOf(selectedAccount, movements);
   $('balance-title').textContent = `${ACCOUNTS[selectedAccount]} balance`;
   $('balance-empty').hidden = hasBalance;
   $('balance-set').hidden = !hasBalance;
@@ -218,11 +125,11 @@ function renderBalance(movements) {
   if (!hasBalance) return;
 
   const fill = $('balance-fill');
-  fill.style.width = `${Math.min(100, (spent / available) * 100)}%`;
+  fill.style.width = `${available > 0 ? Math.min(100, (spent / available) * 100) : 100}%`;
   fill.classList.toggle('over', left < 0);
   $('balance-left').textContent = leftText(left);
-  const sources = income > 0 ? ` (initial ${money(initial ?? 0)} + income ${money(income)})` : '';
-  $('balance-detail').textContent = `${money(spent)} spent of ${money(available)}${sources}, all months`;
+  $('balance-detail').textContent =
+    `${money(spent)} spent of ${money(available)}${balanceSources(initial, income, movedIn, movedOut)}, all months`;
 }
 
 // Bills of the selected account, checked against the selected month.
@@ -250,8 +157,8 @@ function renderBills(movements) {
   const month = shortMonth(selectedMonth);
   const due = toPay > 0 ? `${money(toPay)} still to pay in ${month}` : `all paid in ${month}`;
   $('bill-summary').textContent = items.length > 0 ? `${money(monthly)} a month · ${due}` : '';
-  const { available, left } = balanceOf(selectedAccount, movements);
-  $('bill-after').textContent = toPay > 0 && available > 0 ? `${leftText(left - toPay)} after paying them` : '';
+  const { hasBalance, left } = balanceOf(selectedAccount, movements);
+  $('bill-after').textContent = toPay > 0 && hasBalance ? `${leftText(left - toPay)} after paying them` : '';
 }
 
 // Limits of the selected account, measured against the selected month.
@@ -332,33 +239,35 @@ function renderTrend(expenses) {
   if (hadFocus) columns.find(c => c.getAttribute('aria-pressed') === 'true')?.focus();
 }
 
+// Each row is one button: tapping anywhere on it opens the movement for editing.
 function renderList(inMonth) {
   // Reverse first so same-day movements show newest first after the stable sort.
   const newestFirst = [...inMonth].reverse().sort((a, b) => b.date.localeCompare(a.date));
   const items = newestFirst.map(movement => {
-    const amount = signedMoney(movement);
-    const edit = el('button', { type: 'button', className: 'ghost', textContent: '✎', title: 'Edit or delete', onclick: () => startEdit(movement) });
-    edit.setAttribute('aria-label', `Edit or delete ${movement.category} ${amount}`);
-    return el('li', {},
-      el('span', { className: 'day', textContent: formatDate(movement.date, { month: 'short', day: 'numeric' }) }),
+    const title = titleOf(movement, selectedAccount);
+    const amount = signedMoney(movement, selectedAccount);
+    const day = formatDate(movement.date, { month: 'short', day: 'numeric' });
+    const row = el('button', { type: 'button', className: 'row', onclick: () => startEdit(movement) },
+      el('span', { className: 'day', textContent: day }),
       el('span', { className: 'what' },
-        el('strong', { textContent: movement.category }),
+        el('strong', { textContent: title }),
         movement.note && el('span', { textContent: movement.note }),
       ),
-      el('span', { className: isIncome(movement) ? 'num income' : 'num', textContent: amount }),
-      edit,
+      el('span', { className: amountClassOf(movement), textContent: amount }),
     );
+    row.setAttribute('aria-label', `${title} ${amount}, ${day}. Edit`);
+    return el('li', {}, row);
   });
   $('expense-list').replaceChildren(...items);
   $('no-expenses').hidden = items.length > 0;
 }
 
-// The account switch and the month scope everything except the balances.
-// Charts and the month total are about spending, so they take expenses only;
-// the list shows every movement and the balances add income back in.
+// The account switch and the month scope everything except the balances. A transfer
+// shows in the lists of both accounts it touches; charts and the month total count
+// expenses only, and the balances add income and transfers in.
 function render() {
   const movements = readStored();
-  const inAccount = movements.filter(m => m.account === selectedAccount);
+  const inAccount = movements.filter(m => m.account === selectedAccount || m.toAccount === selectedAccount);
   const expenses = inAccount.filter(isExpense);
   const inMonth = inAccount.filter(m => m.date.startsWith(selectedMonth));
   monthInput.value = selectedMonth;
@@ -379,50 +288,124 @@ function selectMonth(month) {
   render();
 }
 
-// Labels follow edit state and account; category suggestions follow the chosen type.
+function selectAccount(account) {
+  selectedAccount = account; // the movement window is modal, so nothing is open for editing here
+  render();
+}
+
+// --- Movement window ----------------------------------------------------------
+
+const editedMovement = () => readStored().find(m => m.id === form.dataset.editing);
+
+// Labels follow the edit state, the account and the chosen type.
 function syncForm() {
   const isEditing = 'editing' in form.dataset;
+  const kind = form.elements.kind.value;
+  const isTransferKind = kind === 'transfer';
+  const edited = isEditing ? editedMovement() : undefined;
+  const from = edited?.account ?? selectedAccount;
+  const to = edited?.toAccount ?? otherAccount(from);
+  let saveLabel = `Add to ${ACCOUNTS[from]}`;
+  if (isTransferKind) saveLabel = `Move to ${ACCOUNTS[to]}`;
+  if (isEditing) saveLabel = 'Save';
   $('form-title').textContent = isEditing ? 'Edit movement' : 'Add movement';
-  $('save').textContent = isEditing ? 'Save' : `Add to ${ACCOUNTS[selectedAccount]}`;
+  $('save').textContent = saveLabel;
   $('delete-editing').hidden = !isEditing;
-  $('cancel-edit').hidden = !isEditing;
-  const suggestions = knownCategories(readStored(), form.elements.kind.value);
+  $('category-field').hidden = isTransferKind;
+  form.elements.category.required = !isTransferKind;
+  $('transfer-hint').hidden = !isTransferKind;
+  $('transfer-hint').textContent = `Moves money from ${ACCOUNTS[from]} to ${ACCOUNTS[to]}.`;
+  const suggestions = isTransferKind ? [] : knownCategories(readStored(), kind);
   $('categories').replaceChildren(...suggestions.map(value => el('option', { value })));
 }
 
 function resetForm() {
-  // Delete and Cancel vanish below; if one of them had focus, hand it to Save.
-  // Focus outside the form (the account switch) is left alone.
-  const shouldRefocus = 'editing' in form.dataset && form.contains(document.activeElement);
   form.reset();
   delete form.dataset.editing;
   form.elements.date.value = today();
   syncForm();
-  if (shouldRefocus) $('save').focus();
 }
 
-function selectAccount(account) {
-  selectedAccount = account;
-  // An expense open for editing belongs to the account being left; a half-typed new one is kept.
-  if ('editing' in form.dataset) resetForm();
-  render();
+function openMovementDialog() {
+  if ('editing' in form.dataset) resetForm(); // a half-typed new movement is kept as a draft; an edit is not
+  syncForm();
+  movementDialog.showModal();
+  form.elements.amount.focus();
 }
 
 function startEdit(movement) {
+  form.reset();
   form.dataset.editing = movement.id;
   form.elements.kind.value = movement.kind;
   form.elements.amount.value = String(movement.cents / 100);
-  form.elements.category.value = movement.category;
+  form.elements.category.value = isTransfer(movement) ? '' : movement.category;
   form.elements.date.value = movement.date;
   form.elements.note.value = movement.note;
   syncForm();
-  form.scrollIntoView({ block: 'center' });
-  form.elements.amount.focus();
+  movementDialog.showModal(); // no field focused: on a phone the keyboard stays down until needed
+}
+
+// Undo puts back only what the action changed, so anything changed since
+// (another tab, a sync) is kept.
+function undoWith(change) {
+  if (!writeStored(change(readStored()))) return;
+  render();
+  showStatus('Undone');
+  // The Undo button just went away with its message; keep keyboard focus near it.
+  if (document.activeElement === document.body) $('open-add').focus();
+}
+
+const undoAdd = id => () => undoWith(list => list.filter(m => m.id !== id));
+const undoEdit = previous => () => undoWith(list => list.map(m => (m.id === previous.id ? previous : m)));
+const undoDelete = movement => () => undoWith(list => (list.some(m => m.id === movement.id) ? list : [...list, movement]));
+
+function saveMovement(event) {
+  event.preventDefault();
+  const data = new FormData(form);
+  const movements = readStored();
+  const edited = movements.find(m => m.id === form.dataset.editing);
+  const kind = String(data.get('kind'));
+  const account = edited?.account ?? selectedAccount; // editing never moves a movement between accounts
+  const candidate = {
+    id: edited?.id ?? newId(),
+    account,
+    kind,
+    ...(kind === 'transfer' ? { toAccount: edited?.toAccount ?? otherAccount(account) } : {}),
+    date: String(data.get('date')),
+    cents: parseAmount(data.get('amount')),
+    category: kind === 'transfer'
+      ? TRANSFER_CATEGORY
+      : normalizeCategory(data.get('category'), knownCategories(movements, kind)).slice(0, MAX_CATEGORY),
+    note: String(data.get('note')).trim().slice(0, MAX_NOTE),
+  };
+  if (!isValidMovement(candidate)) {
+    showStatus('Enter an amount above zero and a valid date.', true);
+    return;
+  }
+  // A movement being edited may have been deleted in another tab: add it back.
+  const next = edited ? movements.map(m => (m.id === candidate.id ? candidate : m)) : [...movements, candidate];
+  if (!writeStored(next)) return;
+  navigator.storage?.persist?.(); // ask the browser not to evict the data
+  selectedMonth = candidate.date.slice(0, 7);
+  resetForm();
+  movementDialog.close();
+  render();
+  // Worded from the account on screen, like the list (a transfer reads "From Spending" in Savings).
+  showStatus(`Saved ${titleOf(candidate, selectedAccount)} ${signedMoney(candidate, selectedAccount)}`, false,
+    edited ? undoEdit(edited) : undoAdd(candidate.id));
+}
+
+function removeMovement(movement) {
+  if (!writeStored(readStored().filter(m => m.id !== movement.id))) return;
+  resetForm();
+  movementDialog.close();
+  render();
+  showStatus(`Deleted ${titleOf(movement, selectedAccount)} ${signedMoney(movement, selectedAccount)}`, false, undoDelete(movement));
 }
 
 // Pay records the bill as an expense at once: dated today, or the 1st when paying
 // a month other than the current one. A bill that varies (electricity) is corrected
-// afterwards by editing the movement in the list.
+// afterwards by tapping the movement in the list.
 function payBill(bill) {
   const payment = {
     id: newId(),
@@ -439,8 +422,34 @@ function payBill(bill) {
   navigator.storage?.persist?.(); // ask the browser not to evict the data
   render();
   if (hadFocus) ($('bill-list').querySelector('button.status') ?? $('add-bill')).focus();
-  showStatus(`Paid ${payment.category} ${signedMoney(payment)}`);
+  showStatus(`Paid ${payment.category} ${signedMoney(payment)}`, false, undoAdd(payment.id));
 }
+
+form.addEventListener('submit', saveMovement);
+form.addEventListener('change', event => {
+  if (event.target.name === 'kind') syncForm();
+});
+$('open-add').addEventListener('click', openMovementDialog);
+$('cancel-movement').addEventListener('click', () => {
+  resetForm();
+  movementDialog.close();
+});
+$('delete-editing').addEventListener('click', () => {
+  const movement = editedMovement();
+  if (movement) {
+    removeMovement(movement);
+    return;
+  }
+  resetForm(); // already deleted in another tab
+  movementDialog.close();
+});
+movementDialog.addEventListener('close', () => {
+  if ('editing' in form.dataset) resetForm(); // closed with Escape mid-edit: nothing is kept
+  // The row that opened an edit is redrawn after a save, so focus would fall to the page.
+  if (document.activeElement === document.body) $('open-add').focus();
+});
+
+// --- Bills, limits and the initial amount -------------------------------------
 
 function openBillDialog(bill = null) {
   billForm.reset();
@@ -467,11 +476,6 @@ function finishDialog(dialog, addButtonId) {
 const limitErrorFields = () => [limitForm.elements.name, limitForm.elements.extra];
 // Any edit may fix the reported problem, so clear it and let Save check again.
 const clearLimitErrors = () => limitErrorFields().forEach(input => input.setCustomValidity(''));
-
-function rejectField(input, message) {
-  input.setCustomValidity(message);
-  input.reportValidity();
-}
 
 function openLimitDialog(limit = null) {
   limitForm.reset();
@@ -501,57 +505,9 @@ function openLimitDialog(limit = null) {
   limitDialog.showModal();
 }
 
-function removeMovement(movement) {
-  if (!confirm(`Delete ${movement.category} ${signedMoney(movement)}?`)) return;
-  if (!writeStored(readStored().filter(m => m.id !== movement.id))) return;
-  if (form.dataset.editing === movement.id) resetForm();
-  render();
-}
-
-form.addEventListener('submit', event => {
-  event.preventDefault();
-  const data = new FormData(form);
-  const movements = readStored();
-  const edited = movements.find(m => m.id === form.dataset.editing);
-  const kind = String(data.get('kind'));
-  const candidate = {
-    id: form.dataset.editing || newId(),
-    account: edited?.account ?? selectedAccount, // editing never moves a movement between accounts
-    kind,
-    date: String(data.get('date')),
-    cents: parseAmount(data.get('amount')),
-    category: normalizeCategory(data.get('category'), knownCategories(movements, kind)).slice(0, MAX_CATEGORY),
-    note: String(data.get('note')).trim().slice(0, MAX_NOTE),
-  };
-  if (!isValidMovement(candidate)) {
-    showStatus('Enter an amount above zero and a valid date.', true);
-    return;
-  }
-  // A movement being edited may have been deleted in another tab: add it back.
-  const isUpdate = movements.some(m => m.id === candidate.id);
-  const next = isUpdate ? movements.map(m => (m.id === candidate.id ? candidate : m)) : [...movements, candidate];
-  if (!writeStored(next)) return;
-  navigator.storage?.persist?.(); // ask the browser not to evict the data
-  selectedMonth = candidate.date.slice(0, 7);
-  resetForm();
-  render();
-  showStatus(`Saved ${signedMoney(candidate)} · ${candidate.category}`);
-});
-
-form.addEventListener('change', event => {
-  if (event.target.name === 'kind') syncForm();
-});
-
-$('cancel-edit').addEventListener('click', resetForm);
-$('delete-editing').addEventListener('click', () => {
-  const movement = readStored().find(m => m.id === form.dataset.editing);
-  if (movement) removeMovement(movement);
-  else resetForm(); // already deleted in another tab
-});
 $('prev-month').addEventListener('click', () => selectMonth(shiftMonth(selectedMonth, -1)));
 $('next-month').addEventListener('click', () => selectMonth(shiftMonth(selectedMonth, 1)));
 monthInput.addEventListener('change', () => selectMonth(monthInput.value));
-statusBox.addEventListener('click', clearStatus);
 
 // The dialog is modal, so the selected account cannot change while it is open.
 $('edit-initial').addEventListener('click', () => {
@@ -658,6 +614,8 @@ $('initial-form').addEventListener('submit', () => {
   if (saveInitial(selectedAccount, initialInput.value)) render();
 });
 
+// --- Backup ---------------------------------------------------------------------
+
 // ponytail: plain anchor download. If an installed iOS app refuses it, switch
 // to navigator.share({ files }).
 $('export').addEventListener('click', () => {
@@ -704,6 +662,7 @@ $('import-file').addEventListener('change', async event => {
   );
 });
 
+// --- Start ----------------------------------------------------------------------
 
 window.addEventListener('error', event => showStatus(`Something went wrong: ${event.message}`, true));
 window.addEventListener('unhandledrejection', event => showStatus(`Something went wrong: ${event.reason?.message ?? event.reason}`, true));
@@ -725,5 +684,7 @@ $('accounts').addEventListener('change', event => selectAccount(event.target.val
 
 resetForm();
 render();
-startCategoryManager({ readStored, writeItem, render, rejectField, el, formKind: () => form.elements.kind.value });
+// Transfers have no categories of their own: the Categories window shows expense ones then.
+const categoryKind = () => (form.elements.kind.value === 'income' ? 'income' : 'expense');
+startCategoryManager({ readStored, writeItem, render, rejectField, el, formKind: categoryKind });
 startSheetSync({ readSnapshot, writeSnapshot, render, showStatus, rejectField, writeItem });

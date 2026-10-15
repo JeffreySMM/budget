@@ -10,19 +10,25 @@
  * @property {string} category
  * @property {string} note
  * @property {string} [account] key of ACCOUNTS; absent on records saved before accounts existed
- * @property {string} [kind]    'expense' | 'income'; absent on records saved before income existed
+ * @property {string} [kind]    'expense' | 'income' | 'transfer'; absent on records saved before income existed
+ * @property {string} [toAccount] transfers only: the account the money goes to
  */
 
 // Account id -> label. The order is the display order.
 export const ACCOUNTS = { spending: 'Spending', savings: 'Savings' };
 // Where records and amounts from before accounts existed belong.
 export const DEFAULT_ACCOUNT = 'spending';
-const KINDS = ['expense', 'income'];
+const KINDS = ['expense', 'income', 'transfer'];
+// Transfers have no categories of their own.
+const CATEGORY_KINDS = ['expense', 'income'];
 const DEFAULT_KIND = 'expense';
 
 const isAccount = id => typeof id === 'string' && Object.hasOwn(ACCOUNTS, id);
 export const isIncome = movement => movement.kind === 'income';
-export const isExpense = movement => !isIncome(movement);
+// A transfer moves money between the user's own accounts: never spending or income.
+export const isTransfer = movement => movement.kind === 'transfer';
+// Records saved before kinds existed have none and are expenses.
+export const isExpense = movement => movement.kind === undefined || movement.kind === 'expense';
 
 // Fills fields that older records lack, so the rest of the app can rely on them.
 export const withDefaults = movement => ({
@@ -56,7 +62,11 @@ export function isValidMovement(e) {
     && typeof e.category === 'string' && e.category.length > 0 && e.category.length <= MAX_CATEGORY
     && typeof e.note === 'string' && e.note.length <= MAX_NOTE
     && (e.account === undefined || isAccount(e.account))
-    && (e.kind === undefined || KINDS.includes(e.kind));
+    && (e.kind === undefined || KINDS.includes(e.kind))
+    // A transfer names the other account it goes to; nothing else names a second account.
+    && (e.kind === 'transfer'
+      ? isAccount(e.toAccount) && e.toAccount !== (e.account ?? DEFAULT_ACCOUNT)
+      : e.toAccount === undefined);
 }
 
 /**
@@ -86,7 +96,7 @@ export function cleanCategories(value) {
   const clean = list => (Array.isArray(list)
     ? uniqueIgnoringCase(list.filter(isCustomCategoryName)).slice(0, MAX_CUSTOM_CATEGORIES)
     : []);
-  return Object.fromEntries(KINDS.map(kind => [kind, clean(value[kind])]));
+  return Object.fromEntries(CATEGORY_KINDS.map(kind => [kind, clean(value[kind])]));
 }
 
 export function isValidBill(b) {
@@ -136,12 +146,18 @@ export function shiftMonth(month, delta) {
 
 export const sumCents = expenses => expenses.reduce((sum, e) => sum + e.cents, 0);
 
-// What an account holds: initial amount (none counts as zero) plus income, minus expenses.
-export function balance(initialCents, movements) {
-  const income = sumCents(movements.filter(isIncome));
-  const spent = sumCents(movements.filter(isExpense));
-  const available = (initialCents ?? 0) + income;
-  return { income, spent, available, left: available - spent };
+// What an account holds: initial amount (none counts as zero), plus income and
+// transfers in, minus expenses and transfers out. `movements` may span all accounts.
+// hasBalance: there is something to measure against, not only expenses.
+export function balance(initialCents, movements, account) {
+  const own = movements.filter(m => (m.account ?? DEFAULT_ACCOUNT) === account);
+  const income = sumCents(own.filter(isIncome));
+  const spent = sumCents(own.filter(isExpense));
+  const movedOut = sumCents(own.filter(isTransfer));
+  const movedIn = sumCents(movements.filter(m => isTransfer(m) && m.toAccount === account));
+  const available = (initialCents ?? 0) + income + movedIn - movedOut;
+  const hasBalance = (initialCents ?? null) !== null || income + movedIn + movedOut > 0;
+  return { income, spent, movedIn, movedOut, available, left: available - spent, hasBalance };
 }
 
 // A bill counts as paid for the month once any expense in its category is
@@ -270,7 +286,9 @@ export function cleanSnapshot(parsed) {
   if (!backup) return null;
   const expenses = backup.rows
     .filter(isValidMovement)
-    .map(({ id, date, cents, category, note, account, kind }) => withDefaults({ id, date, cents, category, note, account, kind }));
+    .map(({ id, date, cents, category, note, account, kind, toAccount }) => withDefaults({
+      id, date, cents, category, note, account, kind, ...(toAccount === undefined ? {} : { toAccount }),
+    }));
   const bills = backup.bills
     .filter(isValidBill)
     .map(({ id, category, cents, account }) => ({ id, category, cents, account }));
@@ -292,7 +310,7 @@ export function mergeSnapshots(local, remote) {
     limits: mergeLimits(local.limits, remote.limits),
     expenses: mergeById(local.expenses, remote.expenses),
     // Added categories from both sides; a side without any (null) adds nothing.
-    categories: Object.fromEntries(KINDS.map(kind => [kind, uniqueIgnoringCase([
+    categories: Object.fromEntries(CATEGORY_KINDS.map(kind => [kind, uniqueIgnoringCase([
       ...(local.categories?.[kind] ?? []),
       ...(remote.categories?.[kind] ?? []),
     ]).slice(0, MAX_CUSTOM_CATEGORIES)])),

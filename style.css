@@ -124,9 +124,11 @@ button.ghost { min-width: 40px; padding: 0; background: none; border-color: tran
 
 .segmented.kind { grid-column: 1 / -1; }
 .income { color: var(--positive); }
+.transfer { color: var(--text-secondary); } /* own money moving: neither gain nor spending */
 
 .hero .label { font-size: 14px; color: var(--text-secondary); }
 .hero-value { font-size: clamp(40px, 13vw, 56px); font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
+.hero-value.is-empty { font-size: 28px; color: var(--text-secondary); }
 
 .card {
   background: var(--surface-1);
@@ -137,6 +139,8 @@ button.ghost { min-width: 40px; padding: 0; background: none; border-color: tran
   gap: 8px;
   min-width: 0;
 }
+/* Lists and summary lines with nothing in them take no room (and no grid gap). */
+.card > :empty { display: none; }
 
 .card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .balance { display: grid; gap: 8px; }
@@ -155,6 +159,10 @@ dialog {
 }
 dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 dialog form { grid-template-columns: minmax(0, 1fr); }
+/* The movement window keeps two columns, so all of it fits above the phone keyboard. */
+#expense-form { grid-template-columns: 1fr 1fr; }
+#movement-dialog > .card-head { margin-bottom: 12px; }
+#transfer-hint { grid-column: 1 / -1; }
 
 form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 form label { display: grid; gap: 4px; font-size: 13px; color: var(--text-secondary); min-width: 0; }
@@ -270,6 +278,30 @@ form input { color: var(--text-primary); }
 .expenses .what span { color: var(--text-secondary); font-size: 13px; }
 .expenses button { min-width: 36px; min-height: 36px; font-size: 16px; }
 
+/* Movement list: each row is one button that opens the movement for editing */
+.movements { list-style: none; margin: 0; padding: 0; }
+.movements li + li { border-top: 1px solid var(--grid); }
+.movements .row {
+  display: grid;
+  grid-template-columns: 3.5em minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 14px;
+  text-align: left;
+}
+.movements .row:hover { background: var(--page); }
+.movements .day { color: var(--text-secondary); font-size: 13px; }
+.movements .what { display: grid; }
+.movements .what > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.movements .what strong { font-weight: 600; }
+.movements .what span { color: var(--text-secondary); font-size: 13px; }
+
 /* Bills: status column has a floor width so the amounts line up across rows,
    and grows for a long "Paid" amount instead of overlapping the Edit button */
 .bills li { grid-template-columns: minmax(0, 1fr) auto minmax(5.5rem, auto) auto; }
@@ -322,10 +354,33 @@ form .checks label:has(:focus-visible) { outline: 2px solid var(--series-1); out
 footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 footer .sub { flex-basis: 100%; }
 
+/* Add button: always in reach, bottom right, clear of the iPhone home bar */
+.fab {
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--action);
+  color: #fff;
+  font-size: 32px;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+/* Sits above the add button, so neither hides the other */
 #status {
   position: fixed;
+  inset: auto; /* a popover is centred on screen by default */
+  margin: 0;
+  border: 0;
+  height: auto;
+  overflow: visible;
   left: 50%;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  bottom: calc(88px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   width: max-content;
   max-width: calc(100vw - 32px);
@@ -337,5 +392,16 @@ footer .sub { flex-basis: 100%; }
   cursor: pointer;
 }
 #status.error { background: var(--critical); color: #fff; }
+#status .undo {
+  min-height: 32px;
+  margin-left: 8px;
+  padding: 0 12px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
 /* Emptied, not display:none, so the live region stays in the accessibility tree */
 #status:empty { opacity: 0; pointer-events: none; }

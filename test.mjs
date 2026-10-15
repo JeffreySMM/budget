@@ -6,6 +6,7 @@ import {
   withDefaults, sumCents, balance, isValidBill, billStatus, mergeBills,
   isValidLimit, limitStatus, findCategoryClash, mergeLimits, uniqueIgnoringCase,
   cleanSnapshot, mergeSnapshots, hashText, isSheetUrl, cleanCategories, isCustomCategoryName,
+  isExpense, isIncome, isTransfer,
 } from './logic.js';
 
 const expense = (over = {}) => ({ id: 'a', date: '2026-10-09', cents: 1250, category: 'Food', note: '', ...over });
@@ -108,13 +109,39 @@ assert.equal(isValidMovement(expense({ kind: 'constructor' })), false);
 assert.equal(withDefaults(expense()).kind, 'expense');
 assert.equal(withDefaults(expense({ kind: 'income' })).kind, 'income');
 
-// balance: initial + income − expenses; no initial amount counts as zero
+// balance: initial + income + transfers in − expenses − transfers out; no initial amount counts as zero
+const none = { movedIn: 0, movedOut: 0 };
 assert.deepEqual(
-  balance(10000, [expense({ cents: 2500 }), expense({ cents: 4000, kind: 'income' }), expense({ cents: 500, kind: 'expense' })]),
-  { income: 4000, spent: 3000, available: 14000, left: 11000 },
+  balance(10000, [expense({ cents: 2500 }), expense({ cents: 4000, kind: 'income' }), expense({ cents: 500, kind: 'expense' })], 'spending'),
+  { income: 4000, spent: 3000, ...none, available: 14000, left: 11000, hasBalance: true },
 );
-assert.deepEqual(balance(null, [expense({ cents: 300 })]), { income: 0, spent: 300, available: 0, left: -300 });
-assert.deepEqual(balance(null, []), { income: 0, spent: 0, available: 0, left: 0 });
+assert.deepEqual(
+  balance(null, [expense({ cents: 300 })], 'spending'),
+  { income: 0, spent: 300, ...none, available: 0, left: -300, hasBalance: false },
+);
+assert.deepEqual(balance(null, [], 'spending'), { income: 0, spent: 0, ...none, available: 0, left: 0, hasBalance: false });
+
+// Transfers: one record, out of one account and into the other; never spending or income
+const transfer = expense({ id: 't', kind: 'transfer', account: 'spending', toAccount: 'savings', cents: 5000, category: 'Transfer' });
+assert.equal(isValidMovement(transfer), true);
+assert.equal(isValidMovement({ ...transfer, toAccount: undefined }), false);
+assert.equal(isValidMovement({ ...transfer, toAccount: 'spending' }), false); // into itself
+assert.equal(isValidMovement({ ...transfer, toAccount: 'offshore' }), false);
+assert.equal(isValidMovement(expense({ toAccount: 'savings' })), false); // only transfers name a second account
+assert.deepEqual([isTransfer(transfer), isExpense(transfer), isIncome(transfer)], [true, false, false]);
+assert.equal(isExpense(expense()), true); // older records have no kind and are expenses
+const moves = [expense({ cents: 1000 }), transfer, expense({ id: 'i', kind: 'income', account: 'savings', cents: 200 })];
+assert.deepEqual(
+  balance(100000, moves, 'spending'),
+  { income: 0, spent: 1000, movedIn: 0, movedOut: 5000, available: 95000, left: 94000, hasBalance: true },
+);
+assert.deepEqual(
+  balance(null, moves, 'savings'),
+  { income: 200, spent: 0, movedIn: 5000, movedOut: 0, available: 5200, left: 5200, hasBalance: true },
+);
+assert.equal(balance(null, [transfer], 'spending').hasBalance, true); // money moved out still makes a balance
+assert.deepEqual(cleanSnapshot({ expenses: [transfer] }).snapshot.expenses, [transfer]);
+assert.equal('toAccount' in cleanSnapshot({ expenses: [expense()] }).snapshot.expenses[0], false);
 
 // readBackup: every backup shape the app has ever written still imports
 const noInitials = { spending: null, savings: null };
