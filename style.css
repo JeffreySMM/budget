@@ -16,6 +16,12 @@
   --critical: #d03b3b;
   --warning: #fab219; /* bar fills only: the text beside it says the same */
   --link: #256abf;
+  /* Category colours, in this order (a validated colour-blind-safe sequence) */
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
   --positive: #006300; /* income amounts; the + sign carries the meaning, colour only supports it */
   --plot-height: 140px;
 }
@@ -33,6 +39,11 @@
     --meter-track: #0d366b;
     --positive: #0ca30c;
     --link: #6da7ec;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
     --deemphasis: #52514e;
   }
 }
@@ -174,6 +185,23 @@ button.link {
   line-height: 1;
 }
 .icon.letter { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+/* Expenses by category: a ring with the month's total in the middle, and a list */
+.donut-wrap { position: relative; width: min(200px, 60vw); margin: 4px auto 4px; }
+.donut { display: block; width: 100%; height: auto; }
+.donut-center { position: absolute; inset: 0; display: grid; place-content: center; margin: 0; text-align: center; }
+.donut-center strong { font-size: 22px; font-weight: 600; }
+.donut-center span { font-size: 12px; color: var(--text-secondary); }
+.slice { fill: none; }
+.legend th { width: 100%; max-width: 0; }
+.swatch { display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 3px; vertical-align: middle; }
+.s1 { stroke: var(--series-1); background: var(--series-1); }
+.s2 { stroke: var(--series-2); background: var(--series-2); }
+.s3 { stroke: var(--series-3); background: var(--series-3); }
+.s4 { stroke: var(--series-4); background: var(--series-4); }
+.s5 { stroke: var(--series-5); background: var(--series-5); }
+.s6 { stroke: var(--series-6); background: var(--series-6); }
+.other { stroke: var(--deemphasis); background: var(--deemphasis); }
+
 .bars th .icon, .bills .what .icon { width: 24px; height: 24px; margin-right: 8px; font-size: 14px; vertical-align: middle; }
 
 .card {

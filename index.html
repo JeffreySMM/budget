@@ -65,9 +65,13 @@
 
     <section class="card" aria-labelledby="category-title">
       <h2 id="category-title">Expenses by category</h2>
-      <table class="bars">
+      <div id="donut-wrap" class="donut-wrap">
+        <div id="donut"></div>
+        <p class="donut-center"><strong id="donut-total"></strong><span>spent</span></p>
+      </div>
+      <table class="bars legend">
         <thead class="sr-only">
-          <tr><th scope="col">Category</th><td></td><th scope="col">Amount</th><th scope="col">Share</th></tr>
+          <tr><th scope="col">Category</th><th scope="col">Amount</th><th scope="col">Share</th></tr>
         </thead>
         <tbody id="by-category"></tbody>
       </table>

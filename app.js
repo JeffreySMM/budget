@@ -198,23 +198,66 @@ function renderLimits(movements) {
     : '';
 }
 
-function renderCategories(inMonth) {
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const DONUT_COLOURS = 6; // more slices than this cannot be told apart; the rest share grey "Other"
+const DONUT_RADIUS = 40; // in a 100 × 100 viewBox
+const DONUT_WIDTH = 16;
+const DONUT_GAP = 1.2; // about 2px of page colour between slices
+
+// Colours follow the category, not this month's ranking: the account's biggest
+// categories of all time hold slots 1–6, so Groceries keeps its colour every month.
+const categorySlots = expenses =>
+  new Map(totalsByCategory(expenses).slice(0, DONUT_COLOURS).map(({ category }, index) => [category, index + 1]));
+
+// A ring of slices drawn as dashed circle strokes; colours come from classes (s1…s6, other).
+function donutSvg(slices, total) {
+  const circumference = 2 * Math.PI * DONUT_RADIUS;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('class', 'donut');
+  svg.setAttribute('aria-hidden', 'true'); // the list under it carries every number
+  let start = 0;
+  slices.forEach(({ cents, colour }) => {
+    const length = (cents / total) * circumference;
+    const gap = slices.length > 1 ? Math.min(DONUT_GAP, length / 2) : 0;
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    const attributes = {
+      cx: 50, cy: 50, r: DONUT_RADIUS, class: `slice ${colour}`, 'stroke-width': DONUT_WIDTH,
+      'stroke-dasharray': `${length - gap} ${circumference - length + gap}`,
+      'stroke-dashoffset': -start, transform: 'rotate(-90 50 50)',
+    };
+    Object.entries(attributes).forEach(([name, value]) => circle.setAttribute(name, value));
+    svg.append(circle);
+    start += length;
+  });
+  return svg;
+}
+
+// Ring for the month at a glance; the list under it names every category with its amount.
+function renderCategories(inMonth, expenses) {
   const totals = totalsByCategory(inMonth);
   const monthTotal = sumCents(inMonth);
-  const largest = totals[0]?.cents ?? 0;
+  const slots = categorySlots(expenses);
+  const colourOf = category => (slots.has(category) ? `s${slots.get(category)}` : 'other');
+  const coloured = totals.filter(t => slots.has(t.category)).sort((a, b) => slots.get(a.category) - slots.get(b.category));
+  const otherCents = sumCents(totals.filter(t => !slots.has(t.category)));
+  const slices = [
+    ...coloured.map(({ category, cents }) => ({ cents, colour: colourOf(category) })),
+    ...(otherCents > 0 ? [{ cents: otherCents, colour: 'other' }] : []),
+  ];
+  $('donut').replaceChildren(...(monthTotal > 0 ? [donutSvg(slices, monthTotal)] : []));
+  $('donut-total').textContent = money(monthTotal);
   const rows = totals.map(({ category, cents }) => {
-    const bar = el('div', { className: 'bar' });
-    bar.style.width = `${(cents / largest) * 100}%`;
-    const barCell = el('td', { className: 'bar-cell' }, bar);
-    barCell.setAttribute('aria-hidden', 'true');
+    const swatch = el('span', { className: `swatch ${colourOf(category)}` });
+    swatch.setAttribute('aria-hidden', 'true');
     return el('tr', {},
-      el('th', { scope: 'row', title: category }, iconFor(category), category),
-      barCell,
+      el('th', { scope: 'row', title: category }, swatch, iconFor(category), category),
       el('td', { className: 'num', textContent: money(cents) }),
       el('td', { className: 'num share', textContent: `${Math.round((cents / monthTotal) * 100)}%` }),
     );
   });
   $('by-category').replaceChildren(...rows);
+  $('donut-wrap').hidden = rows.length === 0;
   $('no-categories').hidden = rows.length > 0;
 }
 
@@ -308,7 +351,7 @@ function render() {
   renderSummary(movements, expenses, sumCents(inMonth.filter(isIncome)));
   renderBills(movements);
   renderLimits(movements);
-  renderCategories(inMonth.filter(isExpense));
+  renderCategories(inMonth.filter(isExpense), expenses);
   renderTrend(expenses);
   renderList(inMonth);
   syncForm();
