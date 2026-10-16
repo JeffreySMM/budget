@@ -187,6 +187,15 @@ const sameIgnoringCase = (a, b) => a.toLowerCase() === b.toLowerCase();
 export const uniqueIgnoringCase = list =>
   list.filter((item, index) => list.findIndex(other => sameIgnoringCase(other, item)) === index);
 
+// The categories used by movements of one kind, most used first (ties keep the order
+// first seen), so the likeliest choice is offered first.
+export function categoriesByUse(movements, kind) {
+  const counts = movements
+    .filter(m => (m.kind ?? DEFAULT_KIND) === kind)
+    .reduce((tally, m) => tally.set(m.category, (tally.get(m.category) ?? 0) + 1), new Map());
+  return [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a));
+}
+
 /**
  * A monthly spending limit over a group of expense categories,
  * e.g. Personal: 9,000 for Food, Restaurants, Hobbies and Shopping.

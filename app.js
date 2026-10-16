@@ -317,6 +317,26 @@ function syncForm() {
   $('transfer-hint').textContent = `Moves money from ${ACCOUNTS[from]} to ${ACCOUNTS[to]}.`;
   const suggestions = isTransferKind ? [] : knownCategories(readStored(), kind);
   $('categories').replaceChildren(...suggestions.map(value => el('option', { value })));
+  renderCategoryPicks($('category-picks'), form.elements.category, suggestions);
+}
+
+// The categories as buttons under a category field: one tap fills it, typing a new
+// name still works. iPhone shows a datalist's options only as keyboard suggestions
+// once typing starts, so on their own they are easy to miss.
+function renderCategoryPicks(container, input, names) {
+  const markChosen = () => container.querySelectorAll('button').forEach(button =>
+    button.setAttribute('aria-pressed', String(button.textContent.toLowerCase() === input.value.trim().toLowerCase())));
+  container.replaceChildren(...names.map(name => el('button', {
+    type: 'button',
+    textContent: name,
+    onclick: () => {
+      input.value = name;
+      input.setCustomValidity('');
+      markChosen();
+    },
+  })));
+  input.oninput = markChosen; // a property, so redrawing replaces it instead of piling up listeners
+  markChosen();
 }
 
 function resetForm() {
@@ -462,6 +482,7 @@ function openBillDialog(bill = null) {
   $('delete-bill').hidden = !bill;
   const suggestions = knownCategories(readStored(), 'expense');
   $('bill-categories').replaceChildren(...suggestions.map(value => el('option', { value })));
+  renderCategoryPicks($('bill-category-picks'), billForm.elements.category, suggestions);
   billDialog.showModal();
 }
 

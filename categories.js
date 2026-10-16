@@ -1,7 +1,7 @@
 // Category suggestions and the Categories dialog. A category is plain text on each
 // entry; this module only decides which names are offered: the ones already used,
 // the ones the user added, and a starter set.
-import { cleanCategories, isCustomCategoryName, uniqueIgnoringCase, MAX_CUSTOM_CATEGORIES } from './logic.js';
+import { cleanCategories, isCustomCategoryName, uniqueIgnoringCase, categoriesByUse, MAX_CUSTOM_CATEGORIES } from './logic.js';
 
 export const CATEGORIES_KEY = 'categories';
 const DEFAULT_CATEGORIES = {
@@ -27,9 +27,10 @@ export function readCategories() {
   }
 }
 
+// Most used first, then the ones the user added, then the starter set.
 // Transfers have no categories: they get none.
 export const knownCategories = (movements, kind) => uniqueIgnoringCase([
-  ...movements.filter(m => m.kind === kind).map(m => m.category),
+  ...categoriesByUse(movements, kind),
   ...(readCategories()[kind] ?? []),
   ...(DEFAULT_CATEGORIES[kind] ?? []),
 ]);

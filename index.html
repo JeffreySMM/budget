@@ -126,8 +126,9 @@
         <input name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" required>
       </label>
       <label id="category-field">Category
-        <input name="category" list="categories" maxlength="40" autocomplete="off" placeholder="Pick or type" required>
+        <input name="category" list="categories" maxlength="40" autocomplete="off" placeholder="Pick below or type" required>
       </label>
+      <div id="category-picks" class="picks" role="group" aria-label="Pick a category"></div>
       <label>Date
         <input name="date" type="date" required>
       </label>
@@ -161,8 +162,9 @@
     <form method="dialog" id="bill-form">
       <h2 id="bill-title">Add bill</h2>
       <label>Category
-        <input name="category" list="bill-categories" maxlength="40" autocomplete="off" required>
+        <input name="category" list="bill-categories" maxlength="40" autocomplete="off" placeholder="Pick below or type" required>
       </label>
+      <div id="bill-category-picks" class="picks" role="group" aria-label="Pick a category"></div>
       <label>Amount each month
         <input name="amount" type="number" inputmode="decimal" min="0.01" max="1000000000000" step="0.01" required>
       </label>

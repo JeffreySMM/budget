@@ -6,7 +6,7 @@ import {
   withDefaults, sumCents, balance, isValidBill, billStatus, mergeBills,
   isValidLimit, limitStatus, findCategoryClash, mergeLimits, uniqueIgnoringCase,
   cleanSnapshot, mergeSnapshots, hashText, isSheetUrl, cleanCategories, isCustomCategoryName,
-  isExpense, isIncome, isTransfer,
+  isExpense, isIncome, isTransfer, categoriesByUse,
 } from './logic.js';
 
 const expense = (over = {}) => ({ id: 'a', date: '2026-10-09', cents: 1250, category: 'Food', note: '', ...over });
@@ -196,6 +196,21 @@ const merged2 = mergeBills([bill()], [
   bill({ id: 's', account: 'savings' }), // Rent, but in the other account
 ]);
 assert.deepEqual(merged2.map(b => b.id), ['r', 'g', 's']);
+
+// categoriesByUse: the categories of one kind, most used first; ties keep first-seen order;
+// records without a kind are expenses
+assert.deepEqual(
+  categoriesByUse([
+    expense({ category: 'Food' }),
+    expense({ category: 'Rent', kind: 'expense' }),
+    expense({ category: 'Coffee' }),
+    expense({ category: 'Rent', kind: 'expense' }),
+    expense({ category: 'Salary', kind: 'income' }),
+  ], 'expense'),
+  ['Rent', 'Food', 'Coffee'],
+);
+assert.deepEqual(categoriesByUse([expense({ category: 'Salary', kind: 'income' })], 'income'), ['Salary']);
+assert.deepEqual(categoriesByUse([], 'expense'), []);
 
 // uniqueIgnoringCase: first spelling wins
 assert.deepEqual(uniqueIgnoringCase(['Food', 'food', 'Fun', 'FOOD']), ['Food', 'Fun']);
