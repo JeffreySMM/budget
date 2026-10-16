@@ -125,17 +125,18 @@
       <label>Amount
         <input name="amount" type="number" inputmode="decimal" min="0.01" step="0.01" required>
       </label>
-      <label id="category-field">Category
-        <input name="category" list="categories" maxlength="40" autocomplete="off" placeholder="Pick below or type" required>
+      <label id="category-field" class="select-field">Category
+        <select name="category" required></select>
       </label>
-      <div id="category-picks" class="picks" role="group" aria-label="Pick a category"></div>
+      <label id="new-category-field" hidden>New category
+        <input name="newCategory" maxlength="40" autocomplete="off" placeholder="Name">
+      </label>
       <label>Date
         <input name="date" type="date" required>
       </label>
       <label>Note
         <input name="note" maxlength="100" autocomplete="off">
       </label>
-      <datalist id="categories"></datalist>
       <div class="actions">
         <button type="submit" id="save" class="primary">Add</button>
         <button type="button" id="delete-editing" hidden>Delete</button>
@@ -161,14 +162,15 @@
   <dialog id="bill-dialog" aria-labelledby="bill-title">
     <form method="dialog" id="bill-form">
       <h2 id="bill-title">Add bill</h2>
-      <label>Category
-        <input name="category" list="bill-categories" maxlength="40" autocomplete="off" placeholder="Pick below or type" required>
+      <label class="select-field">Category
+        <select name="category" required></select>
       </label>
-      <div id="bill-category-picks" class="picks" role="group" aria-label="Pick a category"></div>
+      <label id="new-bill-category-field" hidden>New category
+        <input name="newCategory" maxlength="40" autocomplete="off" placeholder="Name">
+      </label>
       <label>Amount each month
         <input name="amount" type="number" inputmode="decimal" min="0.01" max="1000000000000" step="0.01" required>
       </label>
-      <datalist id="bill-categories"></datalist>
       <p class="sub">Counts as paid once an expense in this category is recorded for the month. For a bill that varies, enter a typical amount.</p>
       <div class="actions">
         <button type="submit" class="primary">Save</button>

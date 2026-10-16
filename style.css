@@ -70,7 +70,7 @@ h2 { font-size: 15px; font-weight: 600; }
 }
 
 /* Controls */
-button, input {
+button, input, select {
   font: inherit;
   color: inherit;
   min-height: 40px;
@@ -81,7 +81,21 @@ button, input {
 button { padding: 0 14px; cursor: pointer; }
 /* 16px or more: iPhone Safari zooms into any smaller field when it gets focus,
    and does not zoom back out afterwards. */
-input { width: 100%; min-width: 0; padding: 0 10px; font-size: 16px; }
+input, select { width: 100%; min-width: 0; padding: 0 10px; font-size: 16px; }
+/* Lists drop the native look (it ignores the column width on iPhone, like date fields
+   do); the label draws the arrow instead, since an arrow image would need data: images. */
+select { -webkit-appearance: none; appearance: none; padding-right: 32px; }
+select:has(option[value=""]:checked) { color: var(--text-secondary); } /* "Choose…" */
+.select-field { position: relative; }
+.select-field::after {
+  content: '▾';
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
 /* iPhone Safari draws date and month fields at a size of its own, ignoring the
    column width, so they spill into the next field. Without the native look they
    size like every other field; tapping still opens the date picker. */
@@ -164,30 +178,11 @@ dialog form { grid-template-columns: minmax(0, 1fr); }
 #movement-dialog > .card-head { margin-bottom: 12px; }
 #transfer-hint { grid-column: 1 / -1; }
 
-/* Category buttons under a category field: one row, swipe sideways for more */
-.picks {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 6px;
-  min-width: 0;
-  margin-top: -4px;
-  padding-bottom: 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.picks:empty { display: none; }
-.picks button {
-  flex: none;
-  min-height: 36px;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 14px;
-}
-.picks button[aria-pressed="true"] { background: var(--action); border-color: var(--action); color: #fff; }
+#new-category-field { grid-column: 1 / -1; }
 
 form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 form label { display: grid; gap: 4px; font-size: 13px; color: var(--text-secondary); min-width: 0; }
-form input { color: var(--text-primary); }
+form input, form select { color: var(--text-primary); }
 .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
 .actions button { white-space: nowrap; } /* wrap whole buttons, not their labels */
 .actions .primary { flex: 1; }

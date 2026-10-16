@@ -27,10 +27,11 @@ export function readCategories() {
   }
 }
 
-// Most used first, then the ones the user added, then the starter set.
-// Transfers have no categories: they get none.
-export const knownCategories = (movements, kind) => uniqueIgnoringCase([
+// Most used first, then `extra` (names the caller knows from elsewhere), then the ones
+// the user added, then the starter set. Transfers have no categories: they get none.
+export const knownCategories = (movements, kind, extra = []) => uniqueIgnoringCase([
   ...categoriesByUse(movements, kind),
+  ...extra,
   ...(readCategories()[kind] ?? []),
   ...(DEFAULT_CATEGORIES[kind] ?? []),
 ]);

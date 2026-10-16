@@ -315,29 +315,53 @@ function syncForm() {
   form.elements.category.required = !isTransferKind;
   $('transfer-hint').hidden = !isTransferKind;
   $('transfer-hint').textContent = `Moves money from ${ACCOUNTS[from]} to ${ACCOUNTS[to]}.`;
-  const suggestions = isTransferKind ? [] : knownCategories(readStored(), kind);
-  $('categories').replaceChildren(...suggestions.map(value => el('option', { value })));
-  renderCategoryPicks($('category-picks'), form.elements.category, suggestions);
+  if (!isTransferKind) fillCategorySelect(form.elements.category, categoryNames(readStored(), kind));
+  syncNewCategoryField(form.elements.category, $('new-category-field'), form.elements.newCategory, !isTransferKind);
 }
 
-// The categories as buttons under a category field: one tap fills it, typing a new
-// name still works. iPhone shows a datalist's options only as keyboard suggestions
-// once typing starts, so on their own they are easy to miss.
-function renderCategoryPicks(container, input, names) {
-  const markChosen = () => container.querySelectorAll('button').forEach(button =>
-    button.setAttribute('aria-pressed', String(button.textContent.toLowerCase() === input.value.trim().toLowerCase())));
-  container.replaceChildren(...names.map(name => el('button', {
-    type: 'button',
-    textContent: name,
-    onclick: () => {
-      input.value = name;
-      input.setCustomValidity('');
-      markChosen();
-    },
-  })));
-  input.oninput = markChosen; // a property, so redrawing replaces it instead of piling up listeners
-  markChosen();
+// --- Category lists -------------------------------------------------------------
+// The phone's own picker opens when the field is tapped: every known category, then
+// "New category…", which shows a box to type a name that is not in the list yet.
+
+const isNewCategoryChosen = select => select.selectedOptions[0]?.dataset.isNew === 'true';
+
+// Bills and limits name expense categories too, often before any expense uses them.
+const categoryNames = (movements, kind) => knownCategories(movements, kind, kind === 'expense'
+  ? [...readBills().map(bill => bill.category), ...readLimits().flatMap(limit => limit.categories)]
+  : []);
+
+// Redrawn on every render, so it keeps whatever is chosen at the time.
+function fillCategorySelect(select, names) {
+  const keepNew = isNewCategoryChosen(select);
+  const current = keepNew ? '' : select.value;
+  const placeholder = el('option', { value: '', textContent: 'Choose…', disabled: true, defaultSelected: true });
+  const newOption = el('option', { value: 'new-category', textContent: 'New category…' });
+  newOption.dataset.isNew = 'true';
+  select.replaceChildren(placeholder, ...names.map(name => el('option', { value: name, textContent: name })), newOption);
+  if (keepNew) newOption.selected = true;
+  else chooseCategory(select, current);
 }
+
+// Selects `name`, adding it first if the list lacks it; an empty name leaves nothing chosen.
+function chooseCategory(select, name) {
+  if (!name) {
+    select.selectedIndex = 0;
+    return;
+  }
+  const match = [...select.options].find(option =>
+    option.dataset.isNew !== 'true' && option.value.toLowerCase() === name.toLowerCase());
+  const option = match ?? select.insertBefore(el('option', { value: name, textContent: name }), select.options[1] ?? null);
+  option.selected = true;
+}
+
+function syncNewCategoryField(select, field, input, isShown = true) {
+  const isNew = isShown && isNewCategoryChosen(select);
+  field.hidden = !isNew;
+  input.required = isNew;
+}
+
+// The category chosen in the list, or the new name typed under it.
+const chosenCategory = (select, newInput) => (isNewCategoryChosen(select) ? newInput.value : select.value);
 
 function resetForm() {
   form.reset();
@@ -358,10 +382,10 @@ function startEdit(movement) {
   form.dataset.editing = movement.id;
   form.elements.kind.value = movement.kind;
   form.elements.amount.value = String(movement.cents / 100);
-  form.elements.category.value = isTransfer(movement) ? '' : movement.category;
   form.elements.date.value = movement.date;
   form.elements.note.value = movement.note;
-  syncForm();
+  syncForm(); // builds the category list for the movement's kind
+  chooseCategory(form.elements.category, isTransfer(movement) ? '' : movement.category);
   movementDialog.showModal(); // no field focused: on a phone the keyboard stays down until needed
 }
 
@@ -395,7 +419,8 @@ function saveMovement(event) {
     cents: parseAmount(data.get('amount')),
     category: kind === 'transfer'
       ? TRANSFER_CATEGORY
-      : normalizeCategory(data.get('category'), knownCategories(movements, kind)).slice(0, MAX_CATEGORY),
+      : normalizeCategory(chosenCategory(form.elements.category, form.elements.newCategory),
+        categoryNames(movements, kind)).slice(0, MAX_CATEGORY),
     note: String(data.get('note')).trim().slice(0, MAX_NOTE),
   };
   if (!isValidMovement(candidate)) {
@@ -447,7 +472,14 @@ function payBill(bill) {
 
 form.addEventListener('submit', saveMovement);
 form.addEventListener('change', event => {
-  if (event.target.name === 'kind') syncForm();
+  if (event.target.name === 'kind') {
+    form.elements.category.selectedIndex = 0; // the other type has other categories
+    syncForm();
+  }
+  if (event.target.name === 'category') {
+    syncNewCategoryField(form.elements.category, $('new-category-field'), form.elements.newCategory);
+    if (isNewCategoryChosen(form.elements.category)) form.elements.newCategory.focus();
+  }
 });
 $('open-add').addEventListener('click', openMovementDialog);
 $('cancel-movement').addEventListener('click', () => {
@@ -475,16 +507,19 @@ function openBillDialog(bill = null) {
   billForm.reset();
   if (bill) billForm.dataset.editing = bill.id;
   else delete billForm.dataset.editing;
-  billForm.elements.category.setCustomValidity('');
-  billForm.elements.category.value = bill?.category ?? '';
+  clearBillErrors();
   billForm.elements.amount.value = bill ? String(bill.cents / 100) : '';
   $('bill-title').textContent = bill ? 'Edit bill' : 'Add bill';
   $('delete-bill').hidden = !bill;
-  const suggestions = knownCategories(readStored(), 'expense');
-  $('bill-categories').replaceChildren(...suggestions.map(value => el('option', { value })));
-  renderCategoryPicks($('bill-category-picks'), billForm.elements.category, suggestions);
+  fillCategorySelect(billForm.elements.category, categoryNames(readStored(), 'expense'));
+  chooseCategory(billForm.elements.category, bill?.category ?? '');
+  syncNewCategoryField(billForm.elements.category, $('new-bill-category-field'), billForm.elements.newCategory);
   billDialog.showModal();
 }
+
+// Any edit may fix "There is already a … bill", so clear it and let Save check again.
+const clearBillErrors = () =>
+  [billForm.elements.category, billForm.elements.newCategory].forEach(field => field.setCustomValidity(''));
 
 // Saving or deleting re-renders the list, removing the Edit button the dialog
 // would hand focus back to; the card's Add button is always there.
@@ -511,7 +546,7 @@ function openLimitDialog(limit = null) {
   // Categories held by other limits are shown but locked, so one expense never counts twice.
   const others = readLimits().filter(l => l.account === selectedAccount && l.id !== limit?.id);
   const holderOf = category => others.find(l => l.categories.some(c => c.toLowerCase() === category.toLowerCase()));
-  const options = uniqueIgnoringCase([...(limit?.categories ?? []), ...knownCategories(readStored(), 'expense')]);
+  const options = uniqueIgnoringCase([...(limit?.categories ?? []), ...categoryNames(readStored(), 'expense')]);
   $('limit-categories').replaceChildren(
     el('legend', { textContent: 'Categories it covers' }),
     ...options.map(category => {
@@ -541,21 +576,25 @@ $('cancel-initial').addEventListener('click', () => initialDialog.close());
 
 $('add-bill').addEventListener('click', () => openBillDialog());
 $('cancel-bill').addEventListener('click', () => billDialog.close());
-billForm.elements.category.addEventListener('input', event => event.target.setCustomValidity(''));
+billForm.addEventListener('input', clearBillErrors);
+billForm.addEventListener('change', event => {
+  if (event.target.name !== 'category') return;
+  syncNewCategoryField(billForm.elements.category, $('new-bill-category-field'), billForm.elements.newCategory);
+  if (isNewCategoryChosen(billForm.elements.category)) billForm.elements.newCategory.focus();
+});
 billForm.addEventListener('submit', event => {
   event.preventDefault(); // closed by hand, so a taken category can keep it open
   const bills = readBills();
   const editingId = billForm.dataset.editing;
-  const categoryInput = billForm.elements.category;
+  const { category: select, newCategory: newInput } = billForm.elements;
   const bill = {
     id: editingId || newId(),
-    category: normalizeCategory(categoryInput.value, knownCategories(readStored(), 'expense')).slice(0, MAX_CATEGORY),
+    category: normalizeCategory(chosenCategory(select, newInput), categoryNames(readStored(), 'expense')).slice(0, MAX_CATEGORY),
     cents: parseAmount(billForm.elements.amount.value),
     account: bills.find(b => b.id === editingId)?.account ?? selectedAccount,
   };
   if (bills.some(b => b.id !== bill.id && isSameBillSlot(b, bill))) {
-    categoryInput.setCustomValidity(`There is already a ${bill.category} bill.`);
-    categoryInput.reportValidity();
+    rejectField(isNewCategoryChosen(select) ? newInput : select, `There is already a ${bill.category} bill.`);
     return;
   }
   if (!isValidBill(bill)) {
@@ -588,7 +627,7 @@ limitForm.addEventListener('submit', event => {
   const { name: nameInput, amount: amountInput, extra: extraInput } = limitForm.elements;
   const picked = new FormData(limitForm).getAll('category').map(String);
   const typed = extraInput.value.split(',').map(category => category.trim()).filter(Boolean);
-  const known = [...picked, ...knownCategories(readStored(), 'expense')];
+  const known = [...picked, ...categoryNames(readStored(), 'expense')];
   const limit = {
     id: editingId || newId(),
     name: nameInput.value.trim().slice(0, MAX_CATEGORY),
