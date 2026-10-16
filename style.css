@@ -510,7 +510,15 @@ footer .sub { flex-basis: 100%; }
   --deemphasis: #808080;
   --positive: #006300;
 }
-:root[data-look="retro"] body { font-family: 'Pixelify Sans', system-ui, sans-serif; }
+/* Pixelify Sans draws 8 and 5 much like S at phone sizes, so the digits alone come
+   from a clear fixed-width system font (Menlo on iPhone and Mac); letters stay
+   pixelated. A device without these fonts keeps Pixelify's digits. */
+@font-face {
+  font-family: 'Retro Digits';
+  src: local('Menlo-Regular'), local('Menlo'), local('CourierNewPSMT'), local('Courier New');
+  unicode-range: U+0030-0039;
+}
+:root[data-look="retro"] body { font-family: 'Retro Digits', 'Pixelify Sans', system-ui, sans-serif; }
 /* Square corners everywhere: one blunt rule beats every rounded one above. */
 :root[data-look="retro"] * { border-radius: 0 !important; }
 
