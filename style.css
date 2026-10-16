@@ -510,15 +510,16 @@ footer .sub { flex-basis: 100%; }
   --deemphasis: #808080;
   --positive: #006300;
 }
-/* Pixelify Sans draws 8 and 5 much like S at phone sizes, so the digits alone come
-   from a clear fixed-width system font (Menlo on iPhone and Mac); letters stay
-   pixelated. A device without these fonts keeps Pixelify's digits. */
-@font-face {
-  font-family: 'Retro Digits';
-  src: local('Menlo-Regular'), local('Menlo'), local('CourierNewPSMT'), local('Courier New');
-  unicode-range: U+0030-0039;
-}
-:root[data-look="retro"] body { font-family: 'Retro Digits', 'Pixelify Sans', system-ui, sans-serif; }
+/* Pixel-font sizes: one Pixelify "pixel" is 1/10 em, and an iPhone has 3 screen pixels
+   per CSS pixel, so text is crisp only at multiples of 10/3 px (13.33, 16.67, 20,
+   26.67, 40...). At other sizes the font's pixels blur and an 8 smudges into an S. */
+:root[data-look="retro"] body { font-family: 'Pixelify Sans', system-ui, sans-serif; font-size: 16.667px; }
+:root[data-look="retro"] :is(.sub, form label, .day-heading, .segmented small, .bars, .legend,
+  .movements .what span, .paid, .axis, .column .tick, .chips li, #status, .donut-center span) { font-size: 13.333px; }
+:root[data-look="retro"] :is(input, select, button, .movements .row, .bills li, .limit-left, .segmented label) { font-size: 16.667px; }
+:root[data-look="retro"] :is(h1, h2, .donut-center strong) { font-size: 20px; }
+:root[data-look="retro"] .hero-value { font-size: 40px; }
+:root[data-look="retro"] .hero-value.is-empty { font-size: 26.667px; }
 /* Square corners everywhere: one blunt rule beats every rounded one above. */
 :root[data-look="retro"] * { border-radius: 0 !important; }
 
@@ -595,3 +596,6 @@ footer .sub { flex-basis: 100%; }
 .icon.pixel svg { width: 22px; height: 22px; }
 .bars th .icon.pixel svg, .bills .what .icon.pixel svg { width: 18px; height: 18px; }
 .donut-center strong { font-size: 18px; } /* "NT$27,000" fits inside the ring */
+/* Title bars that also hold a link: smaller title and link, still on the 10/3 px grid */
+:root[data-look="retro"] .card-head:first-child h2 { font-size: 16.667px; }
+:root[data-look="retro"] .card-head button.link { font-size: 13.333px; }
