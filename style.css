@@ -582,3 +582,8 @@ footer .sub { flex-basis: 100%; }
 :root[data-look="retro"] #status:not(.error) { background: #ffffe1; color: #000; border: 1px solid #000; }
 /* The switch itself shows pressed in while the retro look is on */
 :root[data-look="retro"] #toggle-look { border-color: #000 #fff #fff #000; box-shadow: inset 1px 1px #808080; }
+/* Pixel icons (retro look): square, no circle behind them, crisp edges */
+.icon.pixel { background: none; }
+.icon.pixel svg { width: 22px; height: 22px; }
+.bars th .icon.pixel svg, .bills .what .icon.pixel svg { width: 18px; height: 18px; }
+.donut-center strong { font-size: 18px; } /* "NT$27,000" fits inside the ring */

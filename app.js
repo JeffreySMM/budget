@@ -17,6 +17,7 @@ import {
   fillCategorySelect, chooseCategory, syncNewCategoryField, chosenCategory, isNewCategoryChosen,
 } from './categories.js';
 import { categorySlots, donutSvg } from './donut.js';
+import { pixelIcon } from './pixel-icons.js';
 
 const TREND_MONTHS = 12;
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
@@ -47,10 +48,11 @@ function today() {
 // randomUUID needs HTTPS or localhost; the fallback keeps plain-HTTP LAN testing working.
 const newId = () => crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
-const money = cents => (cents / 100).toLocaleString(undefined, {
+const CURRENCY = 'NT$'; // New Taiwan dollar, written the way it is in Taiwan
+const money = cents => `${CURRENCY}${(cents / 100).toLocaleString(undefined, {
   minimumFractionDigits: cents % 100 ? 2 : 0,
   maximumFractionDigits: 2,
-});
+})}`;
 const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
 const compact = cents => compactNumber.format(cents / 100);
 // Date-only ISO strings parse as UTC, so format in UTC to stay on the same day.
@@ -272,8 +274,13 @@ function dayHeading(isoDate) {
 
 // A small round badge: the category's emoji, or its first letter.
 function iconFor(name) {
-  const emoji = categoryIcon(name);
-  const icon = el('span', { className: emoji ? 'icon' : 'icon letter', textContent: emoji ?? name.trim().charAt(0).toUpperCase() });
+  const isRetro = document.documentElement.dataset.look === 'retro';
+  const pixel = isRetro ? pixelIcon(name) : null;
+  const emoji = isRetro ? null : categoryIcon(name); // retro: pixel art or the letter, never emoji
+  const letter = name.trim().charAt(0).toUpperCase();
+  const icon = pixel
+    ? el('span', { className: 'icon pixel' }, pixel)
+    : el('span', { className: emoji ? 'icon' : 'icon letter', textContent: emoji ?? letter });
   icon.setAttribute('aria-hidden', 'true');
   return icon;
 }
@@ -758,7 +765,9 @@ function applyLook(isRetro) {
 }
 $('toggle-look').addEventListener('click', () => {
   const isRetro = document.documentElement.dataset.look !== 'retro';
-  if (writeItem(LOOK_KEY, isRetro ? 'retro' : 'modern')) applyLook(isRetro);
+  if (!writeItem(LOOK_KEY, isRetro ? 'retro' : 'modern')) return;
+  applyLook(isRetro);
+  render(); // icons differ between the looks
 });
 applyLook(document.documentElement.dataset.look === 'retro');
 
