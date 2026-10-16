@@ -2,6 +2,7 @@
 // entry; this module only decides which names are offered: the ones already used,
 // the ones the user added, and a starter set.
 import { cleanCategories, isCustomCategoryName, uniqueIgnoringCase, categoriesByUse, MAX_CUSTOM_CATEGORIES } from './logic.js';
+import { el } from './ui.js';
 
 export const CATEGORIES_KEY = 'categories';
 const DEFAULT_CATEGORIES = {
@@ -132,3 +133,43 @@ export function startCategoryManager(appParts) {
   // New categories appear in every suggestion list, and go to the Google Sheet.
   dialog.addEventListener('close', () => app.render());
 }
+
+// --- Category lists -------------------------------------------------------------
+// The phone's own picker opens when the field is tapped: every known category, then
+// "New category…", which shows a box to type a name that is not in the list yet.
+
+export const isNewCategoryChosen = select => select.selectedOptions[0]?.dataset.isNew === 'true';
+
+// Redrawn on every render, so it keeps whatever is chosen at the time.
+export function fillCategorySelect(select, names) {
+  const keepNew = isNewCategoryChosen(select);
+  const current = keepNew ? '' : select.value;
+  const placeholder = el('option', { value: '', textContent: 'Choose…', disabled: true, defaultSelected: true });
+  const newOption = el('option', { value: 'new-category', textContent: 'New category…' });
+  newOption.dataset.isNew = 'true';
+  const optionFor = name => el('option', { value: name, textContent: `${categoryIcon(name) ?? '•'}  ${name}` });
+  select.replaceChildren(placeholder, ...names.map(optionFor), newOption);
+  if (keepNew) newOption.selected = true;
+  else chooseCategory(select, current);
+}
+
+// Selects `name`, adding it first if the list lacks it; an empty name leaves nothing chosen.
+export function chooseCategory(select, name) {
+  if (!name) {
+    select.selectedIndex = 0;
+    return;
+  }
+  const match = [...select.options].find(option =>
+    option.dataset.isNew !== 'true' && option.value.toLowerCase() === name.toLowerCase());
+  const option = match ?? select.insertBefore(el('option', { value: name, textContent: name }), select.options[1] ?? null);
+  option.selected = true;
+}
+
+export function syncNewCategoryField(select, field, input, isShown = true) {
+  const isNew = isShown && isNewCategoryChosen(select);
+  field.hidden = !isNew;
+  input.required = isNew;
+}
+
+// The category chosen in the list, or the new name typed under it.
+export const chosenCategory = (select, newInput) => (isNewCategoryChosen(select) ? newInput.value : select.value);

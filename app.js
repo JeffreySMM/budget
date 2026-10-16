@@ -12,7 +12,11 @@ import {
   readInitial, saveInitial, readSnapshot, writeSnapshot,
 } from './store.js';
 import { startSheetSync, scheduleSheetSync } from './sheet.js';
-import { knownCategories, categoryIcon, startCategoryManager } from './categories.js';
+import {
+  knownCategories, categoryIcon, startCategoryManager,
+  fillCategorySelect, chooseCategory, syncNewCategoryField, chosenCategory, isNewCategoryChosen,
+} from './categories.js';
+import { categorySlots, donutSvg } from './donut.js';
 
 const TREND_MONTHS = 12;
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
@@ -198,41 +202,6 @@ function renderLimits(movements) {
     : '';
 }
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const DONUT_COLOURS = 6; // more slices than this cannot be told apart; the rest share grey "Other"
-const DONUT_RADIUS = 40; // in a 100 × 100 viewBox
-const DONUT_WIDTH = 16;
-const DONUT_GAP = 1.2; // about 2px of page colour between slices
-
-// Colours follow the category, not this month's ranking: the account's biggest
-// categories of all time hold slots 1–6, so Groceries keeps its colour every month.
-const categorySlots = expenses =>
-  new Map(totalsByCategory(expenses).slice(0, DONUT_COLOURS).map(({ category }, index) => [category, index + 1]));
-
-// A ring of slices drawn as dashed circle strokes; colours come from classes (s1…s6, other).
-function donutSvg(slices, total) {
-  const circumference = 2 * Math.PI * DONUT_RADIUS;
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 100 100');
-  svg.setAttribute('class', 'donut');
-  svg.setAttribute('aria-hidden', 'true'); // the list under it carries every number
-  let start = 0;
-  slices.forEach(({ cents, colour }) => {
-    const length = (cents / total) * circumference;
-    const gap = slices.length > 1 ? Math.min(DONUT_GAP, length / 2) : 0;
-    const circle = document.createElementNS(SVG_NS, 'circle');
-    const attributes = {
-      cx: 50, cy: 50, r: DONUT_RADIUS, class: `slice ${colour}`, 'stroke-width': DONUT_WIDTH,
-      'stroke-dasharray': `${length - gap} ${circumference - length + gap}`,
-      'stroke-dashoffset': -start, transform: 'rotate(-90 50 50)',
-    };
-    Object.entries(attributes).forEach(([name, value]) => circle.setAttribute(name, value));
-    svg.append(circle);
-    start += length;
-  });
-  return svg;
-}
-
 // Ring for the month at a glance; the list under it names every category with its amount.
 function renderCategories(inMonth, expenses) {
   const totals = totalsByCategory(inMonth);
@@ -394,50 +363,12 @@ function syncForm() {
   syncNewCategoryField(form.elements.category, $('new-category-field'), form.elements.newCategory, !isTransferKind);
 }
 
-// --- Category lists -------------------------------------------------------------
-// The phone's own picker opens when the field is tapped: every known category, then
-// "New category…", which shows a box to type a name that is not in the list yet.
-
-const isNewCategoryChosen = select => select.selectedOptions[0]?.dataset.isNew === 'true';
 
 // Bills and limits name expense categories too, often before any expense uses them.
 const categoryNames = (movements, kind) => knownCategories(movements, kind, kind === 'expense'
   ? [...readBills().map(bill => bill.category), ...readLimits().flatMap(limit => limit.categories)]
   : []);
 
-// Redrawn on every render, so it keeps whatever is chosen at the time.
-function fillCategorySelect(select, names) {
-  const keepNew = isNewCategoryChosen(select);
-  const current = keepNew ? '' : select.value;
-  const placeholder = el('option', { value: '', textContent: 'Choose…', disabled: true, defaultSelected: true });
-  const newOption = el('option', { value: 'new-category', textContent: 'New category…' });
-  newOption.dataset.isNew = 'true';
-  const optionFor = name => el('option', { value: name, textContent: `${categoryIcon(name) ?? '•'}  ${name}` });
-  select.replaceChildren(placeholder, ...names.map(optionFor), newOption);
-  if (keepNew) newOption.selected = true;
-  else chooseCategory(select, current);
-}
-
-// Selects `name`, adding it first if the list lacks it; an empty name leaves nothing chosen.
-function chooseCategory(select, name) {
-  if (!name) {
-    select.selectedIndex = 0;
-    return;
-  }
-  const match = [...select.options].find(option =>
-    option.dataset.isNew !== 'true' && option.value.toLowerCase() === name.toLowerCase());
-  const option = match ?? select.insertBefore(el('option', { value: name, textContent: name }), select.options[1] ?? null);
-  option.selected = true;
-}
-
-function syncNewCategoryField(select, field, input, isShown = true) {
-  const isNew = isShown && isNewCategoryChosen(select);
-  field.hidden = !isNew;
-  input.required = isNew;
-}
-
-// The category chosen in the list, or the new name typed under it.
-const chosenCategory = (select, newInput) => (isNewCategoryChosen(select) ? newInput.value : select.value);
 
 function resetForm() {
   form.reset();
@@ -817,6 +748,19 @@ $('accounts').append(...Object.entries(ACCOUNTS).map(([account, label]) => el('l
   el('small', { id: `account-note-${account}` }),
 )));
 $('accounts').addEventListener('change', event => selectAccount(event.target.value));
+
+// Windows 95 look: a per-device preference, not synced or backed up; look.js applies
+// it before the page is drawn, and this keeps the switch's state in step.
+const LOOK_KEY = 'look';
+function applyLook(isRetro) {
+  document.documentElement.dataset.look = isRetro ? 'retro' : 'modern';
+  $('toggle-look').setAttribute('aria-pressed', String(isRetro));
+}
+$('toggle-look').addEventListener('click', () => {
+  const isRetro = document.documentElement.dataset.look !== 'retro';
+  if (writeItem(LOOK_KEY, isRetro ? 'retro' : 'modern')) applyLook(isRetro);
+});
+applyLook(document.documentElement.dataset.look === 'retro');
 
 resetForm();
 render();

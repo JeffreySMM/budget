@@ -482,3 +482,103 @@ footer .sub { flex-basis: 100%; }
 }
 /* Emptied, not display:none, so the live region stays in the accessibility tree */
 #status:empty { opacity: 0; pointer-events: none; }
+
+/* --- Retro look: Windows 95 ---------------------------------------------------
+   Switched on per device (the "Retro look" button). Light only, like the original,
+   so it overrides dark mode too. Pixelify Sans: SIL Open Font License, fonts/OFL.txt. */
+@font-face {
+  font-family: 'Pixelify Sans';
+  src: url('fonts/PixelifySans.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+:root[data-look="retro"] {
+  color-scheme: light;
+  --page: #008080;
+  --surface-1: #c0c0c0;
+  --text-primary: #000;
+  --text-secondary: #222;
+  --muted: #333;
+  --grid: #808080;
+  --axis: #000;
+  --border: #000;
+  --control-border: #000;
+  --action: #000080;
+  --link: #000080;
+  --series-1: #000080;
+  --meter-track: #fff;
+  --deemphasis: #808080;
+  --positive: #006300;
+}
+:root[data-look="retro"] body { font-family: 'Pixelify Sans', system-ui, sans-serif; }
+/* Square corners everywhere: one blunt rule beats every rounded one above. */
+:root[data-look="retro"] * { border-radius: 0 !important; }
+
+/* Windows and dialogs: raised grey frame */
+:root[data-look="retro"] .card,
+:root[data-look="retro"] dialog {
+  border: 2px solid;
+  border-color: #fff #000 #000 #fff;
+  box-shadow: inset -1px -1px #808080, inset 1px 1px #dfdfdf;
+  background: #c0c0c0;
+}
+/* Title bars: the first heading of each window, stretched edge to edge */
+:root[data-look="retro"] .card > h2:first-child,
+:root[data-look="retro"] .card > .card-head:first-child,
+:root[data-look="retro"] #movement-dialog > .card-head,
+:root[data-look="retro"] dialog form > h2:first-child {
+  margin: -14px -14px 6px;
+  padding: 3px 6px;
+  background: linear-gradient(90deg, #000080, #1084d0);
+  color: #fff;
+  font-weight: 700;
+}
+:root[data-look="retro"] .card > .card-head:first-child h2,
+:root[data-look="retro"] .summary .label { color: #fff; }
+:root[data-look="retro"] .card-head button.link { color: #fff; text-decoration: underline; }
+:root[data-look="retro"] #movement-dialog > .card-head button { min-height: 28px; }
+
+/* Buttons: raised bevel, pressed when held */
+:root[data-look="retro"] button:not(.link, .row, .ghost, .column, .undo) {
+  border: 2px solid;
+  border-color: #fff #000 #000 #fff;
+  box-shadow: inset -1px -1px #808080, inset 1px 1px #dfdfdf;
+  background: #c0c0c0;
+  color: #000;
+}
+:root[data-look="retro"] button:not(.link, .row, .ghost, .column, .undo):active {
+  border-color: #000 #fff #fff #000;
+  box-shadow: inset 1px 1px #808080, inset -1px -1px #dfdfdf;
+}
+:root[data-look="retro"] button.primary { outline: 1px solid #000; outline-offset: -4px; font-weight: 700; }
+:root[data-look="retro"] .fab { box-shadow: none; }
+
+/* Fields: sunken white */
+:root[data-look="retro"] input,
+:root[data-look="retro"] select {
+  border: 2px solid;
+  border-color: #808080 #fff #fff #808080;
+  box-shadow: inset 1px 1px #000;
+  background: #fff;
+  color: #000;
+}
+:root[data-look="retro"] .segmented { background: #c0c0c0; border: 2px solid; border-color: #808080 #fff #fff #808080; }
+:root[data-look="retro"] .segmented small { color: inherit; }
+
+/* Progress bars: sunken track, blocky fill */
+:root[data-look="retro"] .meter {
+  height: 16px;
+  border: 2px solid;
+  border-color: #808080 #fff #fff #808080;
+  background: #fff;
+}
+:root[data-look="retro"] .meter div { background: repeating-linear-gradient(90deg, var(--fill, #000080) 0 8px, transparent 8px 10px); }
+:root[data-look="retro"] .meter .warn { --fill: #c08000; }
+:root[data-look="retro"] .meter .over { --fill: #c00000; }
+
+/* Text sitting straight on the teal desktop */
+:root[data-look="retro"] footer .sub { color: #000; }
+:root[data-look="retro"] .icon { background: none; }
+:root[data-look="retro"] #status:not(.error) { background: #ffffe1; color: #000; border: 1px solid #000; }
+/* The switch itself shows pressed in while the retro look is on */
+:root[data-look="retro"] #toggle-look { border-color: #000 #fff #fff #000; box-shadow: inset 1px 1px #808080; }
