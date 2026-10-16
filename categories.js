@@ -10,6 +10,22 @@ const DEFAULT_CATEGORIES = {
 };
 const NONE_ADDED = { expense: [], income: [] };
 
+// Icons for common category names, matched ignoring letter case. Others get their
+// first letter in a circle (see iconFor in app.js).
+const CATEGORY_ICONS = {
+  food: '🍽️', groceries: '🛒', supermarket: '🛒', restaurants: '🍜', restaurant: '🍜', 'eating out': '🍜',
+  coffee: '☕', drinks: '🍹', snacks: '🍿',
+  transport: '🚌', taxi: '🚕', fuel: '⛽', gas: '⛽', parking: '🅿️', car: '🚗', travel: '✈️',
+  housing: '🏠', rent: '🏠', utilities: '💡', electricity: '⚡', water: '💧', internet: '🌐', phone: '📱',
+  health: '🩺', medical: '🩺', pharmacy: '💊', gym: '🏋️', sports: '⚽', insurance: '🛡️',
+  fun: '🎉', entertainment: '🎬', hobbies: '🎨', books: '📚', education: '🎓', subscriptions: '🔁',
+  shopping: '🛍️', clothes: '👕', gifts: '🎁', pets: '🐾', kids: '🧸', other: '📦',
+  salary: '💼', bonus: '🎁', interest: '🏦', gift: '🎁', refund: '↩️', transfer: '⇄',
+};
+
+/** @returns {string | null} an emoji for a common category name */
+export const categoryIcon = name => CATEGORY_ICONS[name.trim().toLowerCase()] ?? null;
+
 const $ = id => document.getElementById(id);
 const sameName = (a, b) => a.toLowerCase() === b.toLowerCase();
 
@@ -49,12 +65,13 @@ function renderList() {
     // Only a category this user added, and no entry uses, can be removed: the others
     // would keep coming back from the starter set or from the entries.
     const isRemovable = added.some(c => sameName(c, name)) && !isUsed(name);
-    if (!isRemovable) return app.el('li', { textContent: name });
+    const label = `${categoryIcon(name) ?? '•'} ${name}`;
+    if (!isRemovable) return app.el('li', { textContent: label });
     const removeButton = app.el('button', {
       type: 'button', textContent: '×', title: `Remove ${name}`, onclick: () => removeCategory(kind, name),
     });
     removeButton.setAttribute('aria-label', `Remove ${name}`);
-    return app.el('li', { className: 'removable' }, name, removeButton);
+    return app.el('li', { className: 'removable' }, label, removeButton);
   }));
 }
 

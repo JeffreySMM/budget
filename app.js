@@ -12,13 +12,14 @@ import {
   readInitial, saveInitial, readSnapshot, writeSnapshot,
 } from './store.js';
 import { startSheetSync, scheduleSheetSync } from './sheet.js';
-import { knownCategories, startCategoryManager } from './categories.js';
+import { knownCategories, categoryIcon, startCategoryManager } from './categories.js';
 
 const TREND_MONTHS = 12;
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const REVOKE_URL_MS = 10000;
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 const TRANSFER_CATEGORY = 'Transfer';
+const LIMIT_WARN_SHARE = 0.8; // a limit turns amber once this much of it is spent
 
 const form = $('expense-form');
 const movementDialog = $('movement-dialog');
@@ -82,19 +83,12 @@ function amountClassOf(movement) {
   return isIncome(movement) ? 'num income' : 'num';
 }
 
-function renderHero(expenses, monthIncome) {
-  $('hero-income').textContent = monthIncome > 0 ? `Income ${money(monthIncome)}` : '';
-  const [previous, current] = totalsByMonth(expenses, selectedMonth, 2);
+// Compared with the month before, e.g. "4,640 more than Sep"; empty when there is nothing to compare.
+function monthDelta(previous, current) {
+  if (previous.cents === 0) return '';
   const difference = current.cents - previous.cents;
-  const direction = difference > 0 ? 'more than' : 'less than';
-  const isNothingYet = current.cents === 0;
-  $('hero-account').textContent = ACCOUNTS[selectedAccount];
-  $('hero-month').textContent = longMonth(selectedMonth);
-  $('hero-total').textContent = isNothingYet ? 'Nothing yet' : money(current.cents);
-  $('hero-total').classList.toggle('is-empty', isNothingYet);
-  $('hero-delta').textContent = previous.cents === 0 ? ''
-    : difference === 0 ? `Same as ${shortMonth(previous.month)}`
-    : `${money(Math.abs(difference))} ${direction} ${shortMonth(previous.month)}`;
+  if (difference === 0) return `same as ${shortMonth(previous.month)}`;
+  return `${money(Math.abs(difference))} ${difference > 0 ? 'more' : 'less'} than ${shortMonth(previous.month)}`;
 }
 
 // Each switch segment carries its account's balance, so both are visible at once.
@@ -115,19 +109,31 @@ function balanceSources(initial, income, movedIn, movedOut) {
   return ` (${parts.join(' ')})`;
 }
 
-// A balance needs something to measure against: an initial amount, income or transfers.
-function renderBalance(movements) {
+// The summary card: what is left is the big number, with this month's spending and
+// income under it. Without a balance (nothing to measure against yet: no initial
+// amount, income or transfers) the month's spending is the big number instead.
+function renderSummary(movements, expenses, monthIncome) {
   const { initial, income, spent, movedIn, movedOut, available, left, hasBalance } = balanceOf(selectedAccount, movements);
-  $('balance-title').textContent = `${ACCOUNTS[selectedAccount]} balance`;
+  const [previous, current] = totalsByMonth(expenses, selectedMonth, 2);
+  const month = longMonth(selectedMonth);
+  const delta = monthDelta(previous, current);
+  const isNothingYet = !hasBalance && current.cents === 0;
+  $('summary-label').textContent = `${ACCOUNTS[selectedAccount]} · ${hasBalance ? 'left to spend' : `spent in ${month}`}`;
+  $('summary-value').textContent = hasBalance ? leftText(left) : (isNothingYet ? 'Nothing yet' : money(current.cents));
+  $('summary-value').classList.toggle('is-empty', isNothingYet);
+  $('summary-value').classList.toggle('is-over', hasBalance && left < 0);
+  const spentLine = hasBalance ? `Spent in ${shortMonth(selectedMonth)}: ${money(current.cents)}` : '';
+  $('month-spent').textContent = [spentLine, delta].filter(Boolean).join(' · ');
+  $('hero-income').textContent = monthIncome > 0 ? `Income in ${shortMonth(selectedMonth)}: ${money(monthIncome)}` : '';
   $('balance-empty').hidden = hasBalance;
   $('balance-set').hidden = !hasBalance;
   $('edit-initial').textContent = initial === null ? 'Set initial amount' : 'Edit initial amount';
+  $('balance-detail').textContent = ''; // emptied lines take no room
   if (!hasBalance) return;
 
   const fill = $('balance-fill');
   fill.style.width = `${available > 0 ? Math.min(100, (spent / available) * 100) : 100}%`;
   fill.classList.toggle('over', left < 0);
-  $('balance-left').textContent = leftText(left);
   $('balance-detail').textContent =
     `${money(spent)} spent of ${money(available)}${balanceSources(initial, income, movedIn, movedOut)}, all months`;
 }
@@ -145,7 +151,7 @@ function renderBills(movements) {
       : el('button', { type: 'button', className: 'status', textContent: 'Pay', onclick: () => payBill(bill) });
     if (!isPaid) status.setAttribute('aria-label', `Pay ${bill.category} ${money(bill.cents)}`);
     return el('li', {},
-      el('span', { className: 'what', textContent: bill.category, title: bill.category }),
+      el('span', { className: 'what', title: bill.category }, iconFor(bill.category), bill.category),
       el('span', { className: 'num', textContent: money(bill.cents) }),
       status,
       edit,
@@ -169,14 +175,16 @@ function renderLimits(movements) {
     const { limit } = row;
     const edit = el('button', { type: 'button', className: 'ghost', textContent: '✎', title: 'Edit limit', onclick: () => openLimitDialog(limit) });
     edit.setAttribute('aria-label', `Edit ${limit.name} limit`);
-    const fill = el('div', { className: row.left < 0 ? 'over' : '' });
+    // Amber from 80% used, red when over; the text says the same ("Only … left", "Over by …").
+    const isNearly = row.left >= 0 && row.spent >= limit.cents * LIMIT_WARN_SHARE;
+    const fill = el('div', { className: row.left < 0 ? 'over' : (isNearly ? 'warn' : '') });
     fill.style.width = `${Math.min(100, (row.spent / limit.cents) * 100)}%`;
     const meter = el('div', { className: 'meter' }, fill);
     meter.setAttribute('aria-hidden', 'true'); // the text above and below carries the same numbers
     return el('li', {},
       el('div', { className: 'limit-head' },
         el('strong', { textContent: limit.name, title: limit.name }),
-        el('span', { className: 'limit-left', textContent: leftText(row.left) }),
+        el('span', { className: 'limit-left', textContent: isNearly ? `Only ${money(row.left)} left` : leftText(row.left) }),
         edit,
       ),
       meter,
@@ -200,7 +208,7 @@ function renderCategories(inMonth) {
     const barCell = el('td', { className: 'bar-cell' }, bar);
     barCell.setAttribute('aria-hidden', 'true');
     return el('tr', {},
-      el('th', { scope: 'row', textContent: category, title: category }),
+      el('th', { scope: 'row', title: category }, iconFor(category), category),
       barCell,
       el('td', { className: 'num', textContent: money(cents) }),
       el('td', { className: 'num share', textContent: `${Math.round((cents / monthTotal) * 100)}%` }),
@@ -240,26 +248,51 @@ function renderTrend(expenses) {
 }
 
 // Each row is one button: tapping anywhere on it opens the movement for editing.
+// "Today", "Yesterday", or a weekday and date: the heading over each day's movements.
+function dayHeading(isoDate) {
+  const todayIso = today();
+  if (isoDate === todayIso) return 'Today';
+  const yesterday = new Date(`${todayIso}T00:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  if (isoDate === yesterday.toISOString().slice(0, 10)) return 'Yesterday';
+  return formatDate(isoDate, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// A small round badge: the category's emoji, or its first letter.
+function iconFor(name) {
+  const emoji = categoryIcon(name);
+  const icon = el('span', { className: emoji ? 'icon' : 'icon letter', textContent: emoji ?? name.trim().charAt(0).toUpperCase() });
+  icon.setAttribute('aria-hidden', 'true');
+  return icon;
+}
+
+function movementRow(movement) {
+  const title = titleOf(movement, selectedAccount);
+  const amount = signedMoney(movement, selectedAccount);
+  const day = formatDate(movement.date, { month: 'short', day: 'numeric' });
+  const row = el('button', { type: 'button', className: 'row', onclick: () => startEdit(movement) },
+    iconFor(isTransfer(movement) ? TRANSFER_CATEGORY : movement.category),
+    el('span', { className: 'what' },
+      el('strong', { textContent: title }),
+      movement.note && el('span', { textContent: movement.note }),
+    ),
+    el('span', { className: amountClassOf(movement), textContent: amount }),
+  );
+  row.setAttribute('aria-label', `${title} ${amount}, ${day}. Edit`);
+  return el('li', {}, row);
+}
+
+// Grouped by day, newest first, like a bank statement; tapping a row opens it for editing.
 function renderList(inMonth) {
   // Reverse first so same-day movements show newest first after the stable sort.
   const newestFirst = [...inMonth].reverse().sort((a, b) => b.date.localeCompare(a.date));
-  const items = newestFirst.map(movement => {
-    const title = titleOf(movement, selectedAccount);
-    const amount = signedMoney(movement, selectedAccount);
-    const day = formatDate(movement.date, { month: 'short', day: 'numeric' });
-    const row = el('button', { type: 'button', className: 'row', onclick: () => startEdit(movement) },
-      el('span', { className: 'day', textContent: day }),
-      el('span', { className: 'what' },
-        el('strong', { textContent: title }),
-        movement.note && el('span', { textContent: movement.note }),
-      ),
-      el('span', { className: amountClassOf(movement), textContent: amount }),
-    );
-    row.setAttribute('aria-label', `${title} ${amount}, ${day}. Edit`);
-    return el('li', {}, row);
-  });
-  $('expense-list').replaceChildren(...items);
-  $('no-expenses').hidden = items.length > 0;
+  const days = [...new Set(newestFirst.map(m => m.date))];
+  const groups = days.map(date => el('li', { className: 'day-group' },
+    el('h3', { className: 'day-heading', textContent: dayHeading(date) }),
+    el('ul', {}, ...newestFirst.filter(m => m.date === date).map(movementRow)),
+  ));
+  $('expense-list').replaceChildren(...groups);
+  $('no-expenses').hidden = groups.length > 0;
 }
 
 // The account switch and the month scope everything except the balances. A transfer
@@ -272,8 +305,7 @@ function render() {
   const inMonth = inAccount.filter(m => m.date.startsWith(selectedMonth));
   monthInput.value = selectedMonth;
   renderAccountNotes(movements);
-  renderHero(expenses, sumCents(inMonth.filter(isIncome)));
-  renderBalance(movements);
+  renderSummary(movements, expenses, sumCents(inMonth.filter(isIncome)));
   renderBills(movements);
   renderLimits(movements);
   renderCategories(inMonth.filter(isExpense));
@@ -337,7 +369,8 @@ function fillCategorySelect(select, names) {
   const placeholder = el('option', { value: '', textContent: 'Choose…', disabled: true, defaultSelected: true });
   const newOption = el('option', { value: 'new-category', textContent: 'New category…' });
   newOption.dataset.isNew = 'true';
-  select.replaceChildren(placeholder, ...names.map(name => el('option', { value: name, textContent: name })), newOption);
+  const optionFor = name => el('option', { value: name, textContent: `${categoryIcon(name) ?? '•'}  ${name}` });
+  select.replaceChildren(placeholder, ...names.map(optionFor), newOption);
   if (keepNew) newOption.selected = true;
   else chooseCategory(select, current);
 }

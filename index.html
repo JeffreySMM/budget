@@ -28,30 +28,24 @@
       <legend class="sr-only">Account</legend>
     </fieldset>
 
-    <section class="hero" aria-labelledby="hero-label">
-      <p id="hero-label" class="label"><span id="hero-account"></span> · spent in <span id="hero-month"></span></p>
-      <p id="hero-total" class="hero-value"></p>
-      <p id="hero-delta" class="sub"></p>
-      <p id="hero-income" class="sub"></p>
-    </section>
-
-    <section class="card" aria-labelledby="balance-title">
+    <!-- One summary: what is left is the big number; this month's spending and income under it. -->
+    <section class="card summary" aria-labelledby="summary-label">
       <div class="card-head">
-        <h2 id="balance-title">Balance</h2>
-        <button type="button" id="edit-initial">Set initial amount</button>
+        <h2 id="summary-label" class="label"></h2>
+        <button type="button" id="edit-initial" class="link">Set initial amount</button>
       </div>
+      <p id="summary-value" class="hero-value"></p>
+      <div id="balance-set" class="meter" aria-hidden="true" hidden><div id="balance-fill"></div></div>
+      <p id="month-spent" class="sub"></p>
+      <p id="hero-income" class="sub"></p>
+      <p id="balance-detail" class="sub"></p>
       <p id="balance-empty" class="sub">Set an initial amount or add income to see what is left.</p>
-      <div id="balance-set" class="balance" hidden>
-        <p id="balance-left" class="stat"></p>
-        <div class="meter" aria-hidden="true"><div id="balance-fill"></div></div>
-        <p id="balance-detail" class="sub"></p>
-      </div>
     </section>
 
     <section class="card" aria-labelledby="limits-title">
       <div class="card-head">
         <h2 id="limits-title">Monthly limits</h2>
-        <button type="button" id="add-limit">Add limit</button>
+        <button type="button" id="add-limit" class="link">Add limit</button>
       </div>
       <p id="no-limits" class="sub">Set how much you want to spend each month on groceries, eating out or any group of categories, and see how much is left.</p>
       <ul id="limit-list" class="limits"></ul>
@@ -61,7 +55,7 @@
     <section class="card" aria-labelledby="bills-title">
       <div class="card-head">
         <h2 id="bills-title">Monthly bills</h2>
-        <button type="button" id="add-bill">Add bill</button>
+        <button type="button" id="add-bill" class="link">Add bill</button>
       </div>
       <p id="no-bills" class="sub">List costs that repeat every month, like rent or the phone, to see each month what is paid and what is still due.</p>
       <ul id="bill-list" class="expenses bills"></ul>

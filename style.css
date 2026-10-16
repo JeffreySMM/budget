@@ -14,6 +14,8 @@
   --deemphasis: #c3c2b7;
   --action: #256abf;
   --critical: #d03b3b;
+  --warning: #fab219; /* bar fills only: the text beside it says the same */
+  --link: #256abf;
   --positive: #006300; /* income amounts; the + sign carries the meaning, colour only supports it */
   --plot-height: 140px;
 }
@@ -30,6 +32,7 @@
     --series-1: #3987e5;
     --meter-track: #0d366b;
     --positive: #0ca30c;
+    --link: #6da7ec;
     --deemphasis: #52514e;
   }
 }
@@ -140,9 +143,38 @@ button.ghost { min-width: 40px; padding: 0; background: none; border-color: tran
 .income { color: var(--positive); }
 .transfer { color: var(--text-secondary); } /* own money moving: neither gain nor spending */
 
-.hero .label { font-size: 14px; color: var(--text-secondary); }
-.hero-value { font-size: clamp(40px, 13vw, 56px); font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
+/* Summary card: the big number is what is left to spend */
+.summary .label { font-size: 14px; font-weight: 400; color: var(--text-secondary); }
+.summary { gap: 6px; }
+.hero-value { font-size: clamp(36px, 11vw, 52px); font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
 .hero-value.is-empty { font-size: 28px; color: var(--text-secondary); }
+.hero-value.is-over { color: var(--critical); }
+
+/* Card actions read as links, so the numbers carry the card, not the buttons */
+button.link {
+  min-height: 36px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Category badge: an emoji, or the first letter, in a soft circle */
+.icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--page);
+  font-size: 17px;
+  line-height: 1;
+}
+.icon.letter { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+.bars th .icon, .bills .what .icon { width: 24px; height: 24px; margin-right: 8px; font-size: 14px; vertical-align: middle; }
 
 .card {
   background: var(--surface-1);
@@ -158,9 +190,9 @@ button.ghost { min-width: 40px; padding: 0; background: none; border-color: tran
 
 .card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .balance { display: grid; gap: 8px; }
-.stat { font-size: 22px; font-weight: 600; overflow-wrap: anywhere; }
 .meter { height: 8px; border-radius: 4px; overflow: hidden; background: var(--meter-track); }
 .meter div { height: 100%; background: var(--series-1); }
+.meter .warn { background: var(--warning); }
 .meter .over { background: var(--critical); }
 
 dialog {
@@ -294,12 +326,14 @@ form input, form select { color: var(--text-primary); }
 .expenses .what span { color: var(--text-secondary); font-size: 13px; }
 .expenses button { min-width: 36px; min-height: 36px; font-size: 16px; }
 
-/* Movement list: each row is one button that opens the movement for editing */
-.movements { list-style: none; margin: 0; padding: 0; }
-.movements li + li { border-top: 1px solid var(--grid); }
+/* Movement list: grouped by day; each row is one button that opens the movement for editing */
+.movements, .movements ul { list-style: none; margin: 0; padding: 0; }
+.movements ul li + li { border-top: 1px solid var(--grid); }
+.day-heading { margin: 10px 0 2px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.day-group:first-child .day-heading { margin-top: 0; }
 .movements .row {
   display: grid;
-  grid-template-columns: 3.5em minmax(0, 1fr) auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
   gap: 4px 8px;
   width: 100%;
@@ -312,7 +346,6 @@ form input, form select { color: var(--text-primary); }
   text-align: left;
 }
 .movements .row:hover { background: var(--page); }
-.movements .day { color: var(--text-secondary); font-size: 13px; }
 .movements .what { display: grid; }
 .movements .what > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .movements .what strong { font-weight: 600; }
