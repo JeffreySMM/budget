@@ -599,3 +599,13 @@ footer .sub { flex-basis: 100%; }
 /* Title bars that also hold a link: smaller title and link, still on the 10/3 px grid */
 :root[data-look="retro"] .card-head:first-child h2 { font-size: 16.667px; }
 :root[data-look="retro"] .card-head button.link { font-size: 13.333px; }
+/* Ring colours from the Windows 95 16-colour palette. Neighbours alternate dark and
+   light, and red never sits next to green, so slices stay apart for colour-blind eyes;
+   the list under the ring names every slice anyway. Slot 1 stays navy (above). */
+:root[data-look="retro"] {
+  --series-2: #ffff00;
+  --series-3: #008080;
+  --series-4: #ff0000;
+  --series-5: #00ffff;
+  --series-6: #800080;
+}
