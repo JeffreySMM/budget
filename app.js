@@ -354,8 +354,8 @@ function syncForm() {
   const kind = form.elements.kind.value;
   const isTransferKind = kind === 'transfer';
   const edited = isEditing ? editedMovement() : undefined;
-  const from = edited?.account ?? selectedAccount;
-  const to = edited?.toAccount ?? otherAccount(from);
+  const from = isTransferKind ? form.elements.fromAccount.value : edited?.account ?? selectedAccount;
+  const to = otherAccount(from);
   let saveLabel = `Add to ${ACCOUNTS[from]}`;
   if (isTransferKind) saveLabel = `Move to ${ACCOUNTS[to]}`;
   if (isEditing) saveLabel = 'Save';
@@ -364,6 +364,7 @@ function syncForm() {
   $('delete-editing').hidden = !isEditing;
   $('category-field').hidden = isTransferKind;
   form.elements.category.required = !isTransferKind;
+  $('transfer-from').hidden = !isTransferKind;
   $('transfer-hint').hidden = !isTransferKind;
   $('transfer-hint').textContent = `Moves money from ${ACCOUNTS[from]} to ${ACCOUNTS[to]}.`;
   if (!isTransferKind) fillCategorySelect(form.elements.category, categoryNames(readStored(), kind));
@@ -386,6 +387,7 @@ function resetForm() {
 
 function openMovementDialog() {
   if ('editing' in form.dataset) resetForm(); // a half-typed new movement is kept as a draft; an edit is not
+  form.elements.fromAccount.value = selectedAccount; // a transfer starts out from the account on screen
   syncForm();
   movementDialog.showModal();
   form.elements.amount.focus();
@@ -395,6 +397,7 @@ function startEdit(movement) {
   form.reset();
   form.dataset.editing = movement.id;
   form.elements.kind.value = movement.kind;
+  form.elements.fromAccount.value = movement.account;
   form.elements.amount.value = String(movement.cents / 100);
   form.elements.date.value = movement.date;
   form.elements.note.value = movement.note;
@@ -423,12 +426,13 @@ function saveMovement(event) {
   const movements = readStored();
   const edited = movements.find(m => m.id === form.dataset.editing);
   const kind = String(data.get('kind'));
-  const account = edited?.account ?? selectedAccount; // editing never moves a movement between accounts
+  // A transfer goes the way chosen in the form; editing never moves anything else between accounts.
+  const account = kind === 'transfer' ? String(data.get('fromAccount')) : edited?.account ?? selectedAccount;
   const candidate = {
     id: edited?.id ?? newId(),
     account,
     kind,
-    ...(kind === 'transfer' ? { toAccount: edited?.toAccount ?? otherAccount(account) } : {}),
+    ...(kind === 'transfer' ? { toAccount: otherAccount(account) } : {}),
     date: String(data.get('date')),
     cents: parseAmount(data.get('amount')),
     category: kind === 'transfer'
@@ -490,6 +494,7 @@ form.addEventListener('change', event => {
     form.elements.category.selectedIndex = 0; // the other type has other categories
     syncForm();
   }
+  if (event.target.name === 'fromAccount') syncForm();
   if (event.target.name === 'category') {
     syncNewCategoryField(form.elements.category, $('new-category-field'), form.elements.newCategory);
     if (isNewCategoryChosen(form.elements.category)) form.elements.newCategory.focus();
