@@ -3,8 +3,7 @@ import {
   totalsByCategory, totalsByMonth, windowEnd, niceMax,
   ACCOUNTS, DEFAULT_ACCOUNT, sumCents, isIncome, isExpense, isTransfer, balance,
   isValidBill, billStatus, isSameBillSlot,
-  isValidLimit, limitStatus, findCategoryClash, uniqueIgnoringCase,
-  cleanSnapshot, mergeSnapshots,
+  isValidLimit, limitStatus, findCategoryClash, uniqueIgnoringCase, correctionTo,
 } from './logic.js';
 import { $, el, showStatus, rejectField } from './ui.js';
 import {
@@ -18,12 +17,12 @@ import {
 } from './categories.js';
 import { categorySlots, donutSvg } from './donut.js';
 import { pixelIcon } from './pixel-icons.js';
+import { startBackup } from './backup.js';
 
 const TREND_MONTHS = 12;
-const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
-const REVOKE_URL_MS = 10000;
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 const TRANSFER_CATEGORY = 'Transfer';
+const ADJUSTMENT_CATEGORY = 'Adjustment';
 const LIMIT_WARN_SHARE = 0.8; // a limit turns amber once this much of it is spent
 
 const form = $('expense-form');
@@ -31,6 +30,8 @@ const movementDialog = $('movement-dialog');
 const monthInput = $('month');
 const initialDialog = $('initial-dialog');
 const initialInput = $('initial-form').elements.initial;
+const correctDialog = $('correct-dialog');
+const correctInput = $('correct-form').elements.amount;
 const billDialog = $('bill-dialog');
 const billForm = $('bill-form');
 const limitDialog = $('limit-dialog');
@@ -134,6 +135,7 @@ function renderSummary(movements, expenses, monthIncome) {
   $('balance-empty').hidden = hasBalance;
   $('balance-set').hidden = !hasBalance;
   $('edit-initial').textContent = initial === null ? 'Set initial amount' : 'Edit initial amount';
+  $('correct-balance').hidden = !hasBalance;
   $('balance-detail').textContent = ''; // emptied lines take no room
   if (!hasBalance) return;
 
@@ -592,6 +594,12 @@ $('edit-initial').addEventListener('click', () => {
   initialDialog.showModal();
 });
 $('cancel-initial').addEventListener('click', () => initialDialog.close());
+$('correct-balance').addEventListener('click', () => {
+  $('correct-title').textContent = `${ACCOUNTS[selectedAccount]} amount now`;
+  correctInput.value = String(balanceOf(selectedAccount, readStored()).left / 100);
+  correctDialog.showModal();
+});
+$('cancel-correct').addEventListener('click', () => correctDialog.close());
 
 $('add-bill').addEventListener('click', () => openBillDialog());
 $('cancel-bill').addEventListener('click', () => billDialog.close());
@@ -692,53 +700,24 @@ $('delete-limit').addEventListener('click', () => {
 $('initial-form').addEventListener('submit', () => {
   if (saveInitial(selectedAccount, initialInput.value)) render();
 });
-
-// --- Backup ---------------------------------------------------------------------
-
-// ponytail: plain anchor download. If an installed iOS app refuses it, switch
-// to navigator.share({ files }).
-$('export').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify(readSnapshot(), null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  el('a', { href: url, download: `budget-${today()}.json` }).click();
-  setTimeout(() => URL.revokeObjectURL(url), REVOKE_URL_MS);
-});
-
-$('import').addEventListener('click', () => $('import-file').click());
-$('import-file').addEventListener('change', async event => {
-  const [file] = event.target.files;
-  event.target.value = ''; // so picking the same file again still fires change
-  if (!file) return;
-  if (file.size > MAX_IMPORT_BYTES) {
-    showStatus('Import failed: file is larger than 5 MB.', true);
+// Money that went in or out unrecorded: the difference becomes an Adjustment dated
+// today, which can be undone, given a real category later, or deleted.
+$('correct-form').addEventListener('submit', () => {
+  const actual = Math.round(correctInput.valueAsNumber * 100);
+  const change = correctionTo(balanceOf(selectedAccount, readStored()).left, actual);
+  if (!change) return; // already right
+  const adjustment = {
+    id: newId(), account: selectedAccount, ...change, date: today(), category: ADJUSTMENT_CATEGORY, note: '',
+  };
+  if (!isValidMovement(adjustment)) {
+    showStatus('Enter the amount the account has now.', true);
     return;
   }
-  let parsed = null;
-  try {
-    parsed = JSON.parse(await file.text());
-  } catch (error) {
-    showStatus(`Import failed: ${error.message}`, true);
-    return;
-  }
-  const cleaned = cleanSnapshot(parsed);
-  if (!cleaned) {
-    showStatus('Import failed: not a Budget backup file.', true);
-    return;
-  }
-  // Same rule as syncing: what is already on this device wins.
-  const local = readSnapshot();
-  const merged = mergeSnapshots(local, cleaned.snapshot);
-  const isSaved = writeSnapshot(merged);
+  if (!writeStored([...readStored(), adjustment])) return;
+  selectedMonth = adjustment.date.slice(0, 7); // where the adjustment shows in the list
   render();
-  if (!isSaved) return; // writeItem already reported why
-  const added = key => merged[key].length - local[key].length;
-  const incoming = cleaned.snapshot.expenses.length + cleaned.snapshot.bills.length + cleaned.snapshot.limits.length;
-  const skipped = incoming - added('expenses') - added('bills') - added('limits');
-  showStatus(
-    // Duplicates: same id, or a bill/limit category this device already has.
-    `Imported ${added('expenses')} movements, ${added('bills')} bills and ${added('limits')} limits; skipped ${skipped} duplicates and ${cleaned.invalid} invalid.`,
-    cleaned.invalid > 0,
-  );
+  showStatus(`${ACCOUNTS[selectedAccount]} set to ${money(actual)}: ${ADJUSTMENT_CATEGORY} ${signedMoney(adjustment)}`,
+    false, undoAdd(adjustment.id));
 });
 
 // --- Start ----------------------------------------------------------------------
@@ -782,3 +761,4 @@ render();
 const categoryKind = () => (form.elements.kind.value === 'income' ? 'income' : 'expense');
 startCategoryManager({ readStored, writeItem, render, rejectField, el, formKind: categoryKind });
 startSheetSync({ readSnapshot, writeSnapshot, render, showStatus, rejectField, writeItem });
+startBackup({ render, today });

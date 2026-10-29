@@ -157,6 +157,7 @@ button.ghost { min-width: 40px; padding: 0; background: none; border-color: tran
 /* Summary card: the big number is what is left to spend */
 .summary .label { font-size: 14px; font-weight: 400; color: var(--text-secondary); }
 .summary { gap: 6px; }
+#correct-balance { justify-self: start; padding: 0; }
 .hero-value { font-size: clamp(36px, 11vw, 52px); font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
 .hero-value.is-empty { font-size: 28px; color: var(--text-secondary); }
 .hero-value.is-over { color: var(--critical); }

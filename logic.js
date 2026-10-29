@@ -160,6 +160,18 @@ export function balance(initialCents, movements, account) {
   return { income, spent, movedIn, movedOut, available, left: available - spent, hasBalance };
 }
 
+/**
+ * What brings an account from `leftCents` to the amount it really has: an expense
+ * when money went out unrecorded, income when more came in.
+ * @returns {{ kind: 'expense' | 'income', cents: number } | null} null when nothing changes
+ */
+export function correctionTo(leftCents, actualCents) {
+  if (actualCents === leftCents) return null;
+  return actualCents < leftCents
+    ? { kind: 'expense', cents: leftCents - actualCents }
+    : { kind: 'income', cents: actualCents - leftCents };
+}
+
 // A bill counts as paid for the month once any expense in its category is
 // recorded in that month and account; the amount may differ from the bill's.
 export function billStatus(bills, movements, month) {

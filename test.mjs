@@ -6,7 +6,7 @@ import {
   withDefaults, sumCents, balance, isValidBill, billStatus, mergeBills,
   isValidLimit, limitStatus, findCategoryClash, mergeLimits, uniqueIgnoringCase,
   cleanSnapshot, mergeSnapshots, hashText, isSheetUrl, cleanCategories, isCustomCategoryName,
-  isExpense, isIncome, isTransfer, categoriesByUse,
+  isExpense, isIncome, isTransfer, categoriesByUse, correctionTo,
 } from './logic.js';
 
 const expense = (over = {}) => ({ id: 'a', date: '2026-10-09', cents: 1250, category: 'Food', note: '', ...over });
@@ -120,6 +120,18 @@ assert.deepEqual(
   { income: 0, spent: 300, ...none, available: 0, left: -300, hasBalance: false },
 );
 assert.deepEqual(balance(null, [], 'spending'), { income: 0, spent: 0, ...none, available: 0, left: 0, hasBalance: false });
+
+// correctionTo: the movement that makes what is left match the real amount
+assert.deepEqual(correctionTo(50000, 48800), { kind: 'expense', cents: 1200 });
+assert.deepEqual(correctionTo(50000, 51000), { kind: 'income', cents: 1000 });
+assert.deepEqual(correctionTo(-3000, 0), { kind: 'income', cents: 3000 });
+assert.equal(correctionTo(50000, 50000), null);
+{
+  const movements = [expense({ cents: 2500 }), expense({ cents: 4000, kind: 'income' })];
+  const { left } = balance(10000, movements, 'spending');
+  const fix = correctionTo(left, 9000);
+  assert.equal(balance(10000, [...movements, expense({ id: 'fix', ...fix })], 'spending').left, 9000);
+}
 
 // Transfers: one record, out of one account and into the other; never spending or income
 const transfer = expense({ id: 't', kind: 'transfer', account: 'spending', toAccount: 'savings', cents: 5000, category: 'Transfer' });

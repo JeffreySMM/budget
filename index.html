@@ -41,6 +41,7 @@
       <p id="hero-income" class="sub"></p>
       <p id="balance-detail" class="sub"></p>
       <p id="balance-empty" class="sub">Set an initial amount or add income to see what is left.</p>
+      <button type="button" id="correct-balance" class="link" hidden>Not right? Correct the amount</button>
     </section>
 
     <section class="card" aria-labelledby="limits-title">
@@ -160,6 +161,20 @@
       <div class="actions">
         <button type="submit" class="primary">Save</button>
         <button type="button" id="cancel-initial">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="correct-dialog" aria-labelledby="correct-title">
+    <form method="dialog" id="correct-form">
+      <h2 id="correct-title">Amount now</h2>
+      <label>What the account has now
+        <input name="amount" type="number" inputmode="decimal" step="0.01" max="1000000000000" required>
+      </label>
+      <p class="sub">For something you forgot to record. The difference is added as an Adjustment dated today; tap it in Movements to give it a category, or delete it.</p>
+      <div class="actions">
+        <button type="submit" class="primary">Save</button>
+        <button type="button" id="cancel-correct">Cancel</button>
       </div>
     </form>
   </dialog>
