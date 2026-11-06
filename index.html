@@ -46,12 +46,13 @@
 
     <section class="card" aria-labelledby="limits-title">
       <div class="card-head">
-        <h2 id="limits-title">Monthly limits</h2>
+        <h2 id="limits-title">Spending limits</h2>
         <button type="button" id="add-limit" class="link">Add limit</button>
       </div>
-      <p id="no-limits" class="sub">Set how much you want to spend each month on groceries, eating out or any group of categories, and see how much is left.</p>
+      <p id="no-limits" class="sub">Set how much you want to spend on groceries, eating out or any group of categories, and see how much is left until you reset it.</p>
       <ul id="limit-list" class="limits"></ul>
       <p id="limit-summary" class="sub"></p>
+      <button type="button" id="reset-limits" class="link" hidden>Reset limits, counting from today</button>
     </section>
 
     <section class="card" aria-labelledby="bills-title">
@@ -206,7 +207,7 @@
       <label>Name
         <input name="name" maxlength="40" autocomplete="off" placeholder="Personal" required>
       </label>
-      <label>Limit each month
+      <label>Amount to spend
         <input name="amount" type="number" inputmode="decimal" min="0.01" max="1000000000000" step="0.01" required>
       </label>
       <fieldset id="limit-categories" class="checks">
@@ -215,7 +216,7 @@
       <label>Other categories
         <input name="extra" autocomplete="off" placeholder="Restaurants, Hobbies">
       </label>
-      <p class="sub">Separate other categories with commas. Each month, expenses in these categories count against the limit. A category can be in one limit only.</p>
+      <p class="sub">Separate other categories with commas. Expenses in these categories count against the limit until you tap Reset limits. A category can be in one limit only.</p>
       <div class="actions">
         <button type="submit" class="primary">Save</button>
         <button type="button" id="delete-limit" hidden>Delete</button>

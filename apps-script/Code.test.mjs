@@ -75,13 +75,16 @@ function runChecks() {
       { id: 'm2', date: '2026-10-01', cents: 5000000, category: 'Salary', note: '', account: 'savings', kind: 'income' },
     ],
     bills: [{ id: 'b1', category: 'Rent', cents: 1650000, account: 'spending' }],
-    limits: [{ id: 'l1', name: 'Personal', cents: 900000, categories: ['Food', 'Restaurants'], account: 'spending' }],
+    limits: [
+      { id: 'l1', name: 'Personal', cents: 900000, categories: ['Food', 'Restaurants'], account: 'spending' },
+      { id: 'l3', name: 'Groceries', cents: 500000, categories: ['Groceries'], account: 'spending', since: '2026-10-25' },
+    ],
   };
 
   assert.equal(get().ok, true); // opening the URL in a browser shows it is running
   assert.deepEqual(post({ secret: 'guess', action: 'pull' }), { ok: false, error: 'wrong password' });
-  // schema 2: the script knows transfers; the app will not send them to an older one
-  assert.deepEqual(post({ secret, action: 'pull' }), { ok: true, schema: 2, version: '', data: null }); // new Sheet
+  // schema 3: the script knows transfers and limit resets; the app will not sync with an older one
+  assert.deepEqual(post({ secret, action: 'pull' }), { ok: true, schema: 3, version: '', data: null }); // new Sheet
 
   // Round trip: what the app pushes comes back unchanged
   const pushed = post({ secret, action: 'push', baseVersion: '', data: snapshot });
@@ -132,7 +135,7 @@ function runChecks() {
   const move = { id: 't1', date: '2026-10-15', cents: 500000, category: 'Transfer', note: '', account: 'spending', kind: 'transfer', toAccount: 'savings' };
   const withTransfer = { ...withCategories, expenses: [...snapshot.expenses, move] };
   const pushedTransfer = post({ secret, action: 'push', baseVersion: withCategoriesPulled.version, data: withTransfer });
-  assert.equal(pushedTransfer.schema, 2);
+  assert.equal(pushedTransfer.schema, 3);
   assert.deepEqual(post({ secret, action: 'pull' }).data.expenses[2], move);
 
   // A missing password property is reported, not treated as "no password"

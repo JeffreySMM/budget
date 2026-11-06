@@ -253,6 +253,19 @@ const limits = limitStatus([limit(), personal], [
 assert.deepEqual(limits.rows.map(r => [r.limit.id, r.spent, r.left]), [['g', 180000, 320000], ['p', 1000000, -100000]]);
 assert.deepEqual([limits.total, limits.spent, limits.left], [1400000, 1180000, 220000]);
 assert.deepEqual(limitStatus([], [], '2026-10'), { rows: [], total: 0, spent: 0, left: 0 });
+// After a reset: from that day on, across month ends, until the next reset
+{
+  const reset = limitStatus([limit({ since: '2026-10-25' })], [
+    expense({ category: 'Groceries', cents: 100000, date: '2026-10-24', account: 'spending' }), // before the reset
+    expense({ category: 'Groceries', cents: 20000, date: '2026-10-25', account: 'spending' }),
+    expense({ category: 'Groceries', cents: 30000, date: '2026-11-03', account: 'spending' }),
+  ], '2026-11');
+  assert.deepEqual(reset.rows.map(r => [r.since, r.spent]), [['2026-10-25', 50000]]);
+}
+assert.equal(isValidLimit(limit({ since: '2026-10-25' })), true);
+assert.equal(isValidLimit(limit({ since: '25/10/2026' })), false);
+assert.deepEqual(cleanSnapshot({ expenses: [], limits: [limit({ since: '2026-10-25' }), limit({ id: 'h' })] })
+  .snapshot.limits.map(l => l.since), ['2026-10-25', undefined]);
 
 // findCategoryClash: spending may count against one limit only
 assert.equal(findCategoryClash(limit({ id: 'new', categories: ['Pets'] }), [limit(), personal]), null);

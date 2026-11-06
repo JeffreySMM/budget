@@ -36,14 +36,14 @@
  */
 
 const SECRET_PROPERTY = 'BUDGET_SECRET';
-// Sent with every reply. 2: knows transfers (toAccount); the app will not send
-// transfers to a script that does not say so, since it would drop where they go.
-const SCHEMA = 2;
+// Sent with every reply. 2: knows transfers (toAccount); 3: knows limit resets
+// (since). The app will not sync with an older script, since it would drop them.
+const SCHEMA = 3;
 const ACCOUNTS = ['spending', 'savings']; // must match ACCOUNTS in logic.js
 const TABS = {
   Movements: ['id', 'date', 'amount', 'kind', 'account', 'toAccount', 'category', 'note'],
   Bills: ['id', 'category', 'amount', 'account'],
-  Limits: ['id', 'name', 'amount', 'categories', 'account'],
+  Limits: ['id', 'name', 'amount', 'categories', 'account', 'since'],
   Settings: ['key', 'value'],
 };
 // Amounts stay numbers so they can be summed in the Sheet. Everything else, Settings
@@ -108,7 +108,7 @@ function rowsFor(data) {
     Bills: data.bills.map(b => [b.id, b.category, amount(b.cents), b.account]),
     Limits: data.limits.map(l => {
       if (!isList(l.categories)) throw new Error('the data sent has a limit without categories');
-      return [l.id, l.name, amount(l.cents), l.categories.join(CATEGORY_SEPARATOR), l.account];
+      return [l.id, l.name, amount(l.cents), l.categories.join(CATEGORY_SEPARATOR), l.account, l.since || ''];
     }),
     Settings: ACCOUNTS.map(account => {
       const cents = data.initials[account];
@@ -169,6 +169,7 @@ function readAll() {
       cents: toCents(row.amount),
       categories: splitList(row.categories),
       account: text(row.account),
+      since: text(row.since) || undefined, // blank: never reset
     })),
   };
   // Only when the Settings tab has them: a Sheet written before categories existed

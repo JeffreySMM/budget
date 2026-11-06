@@ -175,10 +175,10 @@ function renderBills(movements) {
   $('bill-after').textContent = toPay > 0 && hasBalance ? `${leftText(left - toPay)} after paying them` : '';
 }
 
-// Limits of the selected account, measured against the selected month.
+// Limits of the selected account, counted from their last reset whatever month is shown.
 function renderLimits(movements) {
   const limits = readLimits().filter(l => l.account === selectedAccount);
-  const { rows, total, spent, left } = limitStatus(limits, movements, selectedMonth);
+  const { rows, total, spent, left } = limitStatus(limits, movements, today().slice(0, 7));
   const items = rows.map(row => {
     const { limit } = row;
     const edit = el('button', { type: 'button', className: 'ghost', textContent: '✎', title: 'Edit limit', onclick: () => openLimitDialog(limit) });
@@ -196,14 +196,30 @@ function renderLimits(movements) {
         edit,
       ),
       meter,
-      el('p', { className: 'sub', textContent: `${money(row.spent)} of ${money(limit.cents)} spent · ${limit.categories.join(', ')}` }),
+      el('p', { className: 'sub', textContent: `${money(row.spent)} of ${money(limit.cents)} spent since ${
+        formatDate(row.since, { month: 'short', day: 'numeric' })} · ${limit.categories.join(', ')}` }),
     );
   });
   $('limit-list').replaceChildren(...items);
   $('no-limits').hidden = items.length > 0;
+  $('reset-limits').hidden = items.length === 0;
   $('limit-summary').textContent = items.length > 1
-    ? `All limits: ${money(spent)} of ${money(total)} spent in ${shortMonth(selectedMonth)} · ${leftText(left)}`
+    ? `All limits: ${money(spent)} of ${money(total)} spent · ${leftText(left)}`
     : '';
+}
+
+// A new period for every limit of the account, e.g. on payday: spending counts from today.
+function resetLimits() {
+  const before = readLimits();
+  const start = today();
+  if (!writeLimits(before.map(l => (l.account === selectedAccount ? { ...l, since: start } : l)))) return;
+  render();
+  const sinceOf = new Map(before.map(l => [l.id, l.since]));
+  showStatus(`${ACCOUNTS[selectedAccount]} limits reset: counting from today`, false, () => {
+    if (!writeLimits(readLimits().map(l => (sinceOf.has(l.id) ? { ...l, since: sinceOf.get(l.id) } : l)))) return;
+    render();
+    showStatus('Undone');
+  });
 }
 
 // Ring for the month at a glance; the list under it names every category with its amount.
@@ -644,6 +660,7 @@ $('delete-bill').addEventListener('click', () => {
 });
 
 $('add-limit').addEventListener('click', () => openLimitDialog());
+$('reset-limits').addEventListener('click', resetLimits);
 $('cancel-limit').addEventListener('click', () => limitDialog.close());
 limitForm.addEventListener('input', clearLimitErrors);
 limitForm.addEventListener('change', clearLimitErrors);
@@ -655,13 +672,17 @@ limitForm.addEventListener('submit', event => {
   const picked = new FormData(limitForm).getAll('category').map(String);
   const typed = extraInput.value.split(',').map(category => category.trim()).filter(Boolean);
   const known = [...picked, ...categoryNames(readStored(), 'expense')];
+  const existing = limits.find(l => l.id === editingId);
+  const account = existing?.account ?? selectedAccount;
   const limit = {
     id: editingId || newId(),
     name: nameInput.value.trim().slice(0, MAX_CATEGORY),
     cents: parseAmount(amountInput.value),
     // Trim again after cutting to length: a cut can end on a space, which isValidLimit rejects.
     categories: uniqueIgnoringCase([...picked, ...typed].map(c => normalizeCategory(c, known).slice(0, MAX_CATEGORY).trim())),
-    account: limits.find(l => l.id === editingId)?.account ?? selectedAccount,
+    account,
+    // A new limit joins the period the account's other limits are counting.
+    since: existing?.since ?? limits.find(l => l.account === account && l.since)?.since ?? `${today().slice(0, 7)}-01`,
   };
   if (!limit.name) {
     rejectField(nameInput, 'Enter a name.');
@@ -754,6 +775,10 @@ $('toggle-look').addEventListener('click', () => {
   render(); // icons differ between the looks
 });
 applyLook(document.documentElement.dataset.look === 'retro');
+
+// Limits saved before resets existed counted the calendar month. They keep counting
+// from this month's 1st until reset, instead of restarting when the month ends.
+if (readLimits().some(l => !l.since)) writeLimits(readLimits().map(l => ({ since: `${today().slice(0, 7)}-01`, ...l })));
 
 resetForm();
 render();

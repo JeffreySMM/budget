@@ -17,6 +17,7 @@ const TIMEOUT_MS = 20000;
 const PUSH_DELAY_MS = 2000;
 const CONFLICT_RETRIES = 2;
 const TRANSFERS_SCHEMA = 2; // the first script version that stores transfers
+const LIMIT_RESETS_SCHEMA = 3; // the first that stores when a limit was reset
 const LOCAL_ONLY_TEXT = 'Data stays on this device. Export a backup now and then.';
 
 const $ = id => document.getElementById(id);
@@ -102,6 +103,10 @@ async function reconcile(settings, retriesLeft) {
   // An older script has no column for where a transfer goes, so it would lose it.
   if (remote.schema < TRANSFERS_SCHEMA && app.readSnapshot().expenses.some(m => m.kind === 'transfer')) {
     throw new Error('transfers need the latest Apps Script: paste the new Code.gs and deploy a new version');
+  }
+  // Nor for when a limit was reset, which would quietly restart it.
+  if (remote.schema < LIMIT_RESETS_SCHEMA && app.readSnapshot().limits.some(l => l.since)) {
+    throw new Error('limit resets need the latest Apps Script: paste the new Code.gs and deploy a new version');
   }
   const cleaned = remote.data === null ? null : cleanSnapshot(remote.data);
   if (remote.data !== null && !cleaned) throw new Error('the Sheet data could not be read');

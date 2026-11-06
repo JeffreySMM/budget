@@ -209,14 +209,15 @@ export function categoriesByUse(movements, kind) {
 }
 
 /**
- * A monthly spending limit over a group of expense categories,
- * e.g. Personal: 9,000 for Food, Restaurants, Hobbies and Shopping.
+ * A spending limit over a group of expense categories, counted from its last
+ * reset, e.g. Personal: 9,000 for Food, Restaurants, Hobbies and Shopping.
  * @typedef {object} Limit
  * @property {string} id
  * @property {string} name
- * @property {number} cents         allowed per month, positive integer
+ * @property {number} cents         allowed until the next reset, positive integer
  * @property {string[]} categories  at least one, no two equal ignoring letter case
  * @property {string} account       key of ACCOUNTS
+ * @property {string} [since]       YYYY-MM-DD, the day spending starts counting; set by a reset
  */
 const MAX_LIMIT_CATEGORIES = 50;
 
@@ -228,16 +229,19 @@ export function isValidLimit(l) {
     && isAccount(l.account)
     && Array.isArray(l.categories) && l.categories.length > 0 && l.categories.length <= MAX_LIMIT_CATEGORIES
     && l.categories.every(isCategoryName)
-    && uniqueIgnoringCase(l.categories).length === l.categories.length;
+    && uniqueIgnoringCase(l.categories).length === l.categories.length
+    && (l.since === undefined || isIsoDate(l.since));
 }
 
-// Spending against each limit in one month: that account's expenses in the covered categories.
+// Spending against each limit since its last reset: that account's expenses in the
+// covered categories. A limit never reset counts from the 1st of `month`.
 export function limitStatus(limits, movements, month) {
   const rows = limits.map(limit => {
+    const since = limit.since ?? `${month}-01`;
     const covers = category => limit.categories.some(c => sameIgnoringCase(c, category));
     const spent = sumCents(movements.filter(m => isExpense(m) && m.account === limit.account
-      && m.date.startsWith(month) && covers(m.category)));
-    return { limit, spent, left: limit.cents - spent };
+      && m.date >= since && covers(m.category)));
+    return { limit, since, spent, left: limit.cents - spent };
   });
   const total = sumCents(limits);
   const spent = rows.reduce((sum, row) => sum + row.spent, 0);
@@ -315,7 +319,9 @@ export function cleanSnapshot(parsed) {
     .map(({ id, category, cents, account }) => ({ id, category, cents, account }));
   const limits = backup.limits
     .filter(isValidLimit)
-    .map(({ id, name, cents, categories, account }) => ({ id, name, cents, categories: [...categories], account }));
+    .map(({ id, name, cents, categories, account, since }) => ({
+      id, name, cents, categories: [...categories], account, ...(since === undefined ? {} : { since }),
+    }));
   const invalid = backup.rows.length - expenses.length + backup.bills.length - bills.length
     + backup.limits.length - limits.length;
   const categories = cleanCategories(parsed.categories);
