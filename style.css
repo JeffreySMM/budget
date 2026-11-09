@@ -524,13 +524,13 @@ footer .sub { flex-basis: 100%; }
 /* Pixel-font sizes: one Pixelify "pixel" is 1/10 em, and an iPhone has 3 screen pixels
    per CSS pixel, so text is crisp only at multiples of 10/3 px (13.33, 16.67, 20,
    26.67, 40...). At other sizes the font's pixels blur and an 8 smudges into an S. */
-:root:is([data-look="retro"], [data-look="mac"]) body { font-family: 'Pixelify Sans', system-ui, sans-serif; font-size: 16.667px; }
-:root:is([data-look="retro"], [data-look="mac"]) :is(.sub, form label, .day-heading, .segmented small, .bars, .legend,
+:root:is([data-look="retro"], [data-look="mac"], [data-look="gameboy"]) body { font-family: 'Pixelify Sans', system-ui, sans-serif; font-size: 16.667px; }
+:root:is([data-look="retro"], [data-look="mac"], [data-look="gameboy"]) :is(.sub, form label, .day-heading, .segmented small, .bars, .legend,
   .movements .what span, .paid, .axis, .column .tick, .chips li, #status, .donut-center span) { font-size: 13.333px; }
-:root:is([data-look="retro"], [data-look="mac"]) :is(input, select, button, .movements .row, .bills li, .limit-left, .segmented label) { font-size: 16.667px; }
-:root:is([data-look="retro"], [data-look="mac"]) :is(h1, h2, .donut-center strong) { font-size: 20px; }
-:root:is([data-look="retro"], [data-look="mac"]) .hero-value { font-size: 40px; }
-:root:is([data-look="retro"], [data-look="mac"]) .hero-value.is-empty { font-size: 26.667px; }
+:root:is([data-look="retro"], [data-look="mac"], [data-look="gameboy"]) :is(input, select, button, .movements .row, .bills li, .limit-left, .segmented label) { font-size: 16.667px; }
+:root:is([data-look="retro"], [data-look="mac"], [data-look="gameboy"]) :is(h1, h2, .donut-center strong) { font-size: 20px; }
+:root:is([data-look="retro"], [data-look="mac"], [data-look="gameboy"]) .hero-value { font-size: 40px; }
+:root:is([data-look="retro"], [data-look="mac"], [data-look="gameboy"]) .hero-value.is-empty { font-size: 26.667px; }
 /* Square corners everywhere: one blunt rule beats every rounded one above. */
 :root[data-look="retro"] * { border-radius: 0 !important; }
 
@@ -598,7 +598,7 @@ footer .sub { flex-basis: 100%; }
 
 /* Text sitting straight on the teal desktop */
 :root[data-look="retro"] footer .sub { color: #000; }
-:root:is([data-look="retro"], [data-look="mac"]) .icon { background: none; }
+:root:is([data-look="retro"], [data-look="mac"], [data-look="gameboy"]) .icon { background: none; }
 :root[data-look="retro"] #status:not(.error) { background: #ffffe1; color: #000; border: 1px solid #000; }
 /* Pixel icons (retro look): square, no circle behind them, crisp edges */
 .icon.pixel { background: none; }
@@ -606,8 +606,8 @@ footer .sub { flex-basis: 100%; }
 .bars th .icon.pixel svg, .bills .what .icon.pixel svg { width: 18px; height: 18px; }
 .donut-center strong { font-size: 18px; } /* "NT$27,000" fits inside the ring */
 /* Title bars that also hold a link: smaller title and link, still on the 10/3 px grid */
-:root:is([data-look="retro"], [data-look="mac"]) .card-head:first-child h2 { font-size: 16.667px; }
-:root:is([data-look="retro"], [data-look="mac"]) .card-head button.link { font-size: 13.333px; }
+:root:is([data-look="retro"], [data-look="mac"], [data-look="gameboy"]) .card-head:first-child h2 { font-size: 16.667px; }
+:root:is([data-look="retro"], [data-look="mac"], [data-look="gameboy"]) .card-head button.link { font-size: 13.333px; }
 /* Ring colours from the Windows 95 16-colour palette. Neighbours alternate dark and
    light, and red never sits next to green, so slices stay apart for colour-blind eyes;
    the list under the ring names every slice anyway. Slot 1 stays navy (above). */

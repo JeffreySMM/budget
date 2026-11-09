@@ -13,6 +13,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="look.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="gameboy.css">
 </head>
 <body>
   <main>
@@ -277,6 +278,24 @@
       </div>
     </form>
   </dialog>
+
+  <!-- Fills for the ring in the Game Boy look (gameboy.css), in ring units: 100 across. -->
+  <svg class="paint" aria-hidden="true" focusable="false" width="0" height="0">
+    <defs>
+      <pattern id="gb-hatch" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="3" height="3" fill="#cadc9f"/><rect width="1.5" height="3" fill="#0f380f"/>
+      </pattern>
+      <pattern id="gb-checker" width="2" height="2" patternUnits="userSpaceOnUse">
+        <rect width="2" height="2" fill="#cadc9f"/><rect width="1" height="1" fill="#306230"/><rect x="1" y="1" width="1" height="1" fill="#306230"/>
+      </pattern>
+      <pattern id="gb-stripes" width="3" height="3" patternUnits="userSpaceOnUse">
+        <rect width="3" height="3" fill="#cadc9f"/><rect width="3" height="1.5" fill="#0f380f"/>
+      </pattern>
+      <pattern id="gb-light" width="2" height="2" patternUnits="userSpaceOnUse">
+        <rect width="2" height="2" fill="#cadc9f"/><rect width="1" height="1" fill="#8bac0f"/><rect x="1" y="1" width="1" height="1" fill="#8bac0f"/>
+      </pattern>
+    </defs>
+  </svg>
 
   <script type="module" src="app.js"></script>
 </body>

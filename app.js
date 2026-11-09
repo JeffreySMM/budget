@@ -750,7 +750,7 @@ $('accounts').addEventListener('change', event => selectAccount(event.target.val
 // Looks: a per-device preference, not synced or backed up. look.js applies it before
 // the page is drawn; the button steps through them and names the one showing.
 const LOOK_KEY = 'look';
-const LOOKS = { modern: 'Modern', retro: 'Windows 95', mac: 'Classic Mac' };
+const LOOKS = { modern: 'Modern', retro: 'Windows 95', mac: 'Classic Mac', gameboy: 'Game Boy' };
 const showLook = () => { $('toggle-look').textContent = `Look: ${LOOKS[document.documentElement.dataset.look]}`; };
 $('toggle-look').addEventListener('click', () => {
   const looks = Object.keys(LOOKS);

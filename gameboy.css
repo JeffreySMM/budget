@@ -1,0 +1,118 @@
+/* --- Game Boy look --------------------------------------------------------------
+   The original Game Boy: windows are its pale green screen, in its four shades of
+   green, on the grey of the console; the add button is the magenta A button. Same
+   pixel font and sizes as the other retro looks (shared rules in style.css). Light
+   only, overriding dark mode. */
+
+/* The holder of the ring's fills (in index.html) takes no room in any look */
+.paint { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+:root[data-look="gameboy"] {
+  color-scheme: light;
+  --gb-0: #0f380f; /* darkest */
+  --gb-1: #306230;
+  --gb-2: #8bac0f;
+  --gb-3: #cadc9f; /* lightest: the screen */
+  --gb-a: #9a2257; /* the A and B buttons */
+  --page: #c4c0b4;
+  --surface-1: var(--gb-3);
+  --text-primary: var(--gb-0);
+  --text-secondary: var(--gb-1);
+  --muted: var(--gb-1);
+  --grid: var(--gb-2);
+  --axis: var(--gb-0);
+  --border: var(--gb-0);
+  --control-border: var(--gb-0);
+  --action: var(--gb-0);
+  --link: var(--gb-0);
+  --meter-track: var(--gb-3);
+  --deemphasis: var(--gb-2);
+  --positive: var(--gb-1);
+  --warning: var(--gb-1);
+  /* The screen has no red: going over a limit or the balance borrows the buttons' magenta. */
+  --critical: var(--gb-a);
+  --series-1: var(--gb-0);
+  --series-2: var(--gb-1);
+  --series-3: var(--gb-2);
+}
+:root[data-look="gameboy"] * { border-radius: 0 !important; }
+
+/* Windows: the screen, a thick dark frame with its corner pixels cut off */
+:root[data-look="gameboy"] :is(.card, dialog) {
+  border: 3px solid var(--gb-0);
+  background: var(--gb-3);
+  box-shadow: none;
+  clip-path: polygon(0 3px, 3px 3px, 3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px,
+    100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%,
+    3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px));
+}
+/* Title bars: inverted, light text on the darkest green */
+:root[data-look="gameboy"] :is(.card > h2:first-child, .card > .card-head:first-child,
+  dialog > .card-head, dialog form > h2:first-child) {
+  margin: -14px -14px 8px;
+  padding: 3px 6px;
+  background: var(--gb-0);
+  color: var(--gb-3);
+  font-weight: 700;
+}
+:root[data-look="gameboy"] :is(.card-head:first-child h2, .summary .label, .card-head:first-child button.link) { color: var(--gb-3); }
+:root[data-look="gameboy"] button.link { text-decoration: underline; }
+:root[data-look="gameboy"] h1 { color: #2b2b8c; font-style: italic; } /* like the console's logo */
+
+/* Buttons: framed, inverted while held; the main one is filled */
+:root[data-look="gameboy"] button:not(.link, .row, .ghost, .column, .undo) {
+  border: 2px solid var(--gb-0);
+  box-shadow: none;
+  background: var(--gb-3);
+  color: var(--gb-0);
+  clip-path: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px,
+    100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%,
+    2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+}
+:root[data-look="gameboy"] button:not(.link, .row, .ghost, .column, .undo):active,
+:root[data-look="gameboy"] button.primary { background: var(--gb-0); color: var(--gb-3); }
+:root[data-look="gameboy"] button.primary { font-weight: 700; }
+/* The A button: round and magenta (button.fab, to outrank the button rule above) */
+:root[data-look="gameboy"] button.fab {
+  border: 0;
+  border-radius: 50% !important;
+  background: var(--gb-a);
+  color: #fff;
+  clip-path: none;
+  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Fields */
+:root[data-look="gameboy"] :is(input, select, .segmented) { border: 2px solid var(--gb-0); box-shadow: none; background: var(--gb-3); color: var(--gb-0); }
+:root[data-look="gameboy"] ::placeholder { color: var(--gb-1); }
+:root[data-look="gameboy"] .segmented small { color: inherit; }
+:root[data-look="gameboy"] .segmented label:has(:checked) { color: var(--gb-3); }
+
+/* Progress bars: blocky like a health bar; chequered when nearly used up, magenta when over */
+:root[data-look="gameboy"] .meter { height: 14px; border: 2px solid var(--gb-0); background: var(--gb-3); }
+:root[data-look="gameboy"] .meter div { background: repeating-linear-gradient(90deg, var(--gb-1) 0 6px, transparent 6px 8px); }
+:root[data-look="gameboy"] .meter .warn { background: repeating-conic-gradient(var(--gb-0) 0 25%, var(--gb-3) 0 50%) 0 0 / 4px 4px; }
+:root[data-look="gameboy"] .meter .over { background: var(--gb-a); }
+
+/* Pixel icons in the screen's greens: outline darkest, colour light. Icons drawn
+   with no outline at all (the lightning bolt) take the dark green, to stay visible. */
+:root[data-look="gameboy"] :is(.icon.pixel, .icon-choice) svg rect { fill: var(--gb-2); }
+:root[data-look="gameboy"] :is(.icon.pixel, .icon-choice) svg rect[fill="#000"] { fill: var(--gb-0); }
+:root[data-look="gameboy"] :is(.icon.pixel, .icon-choice) svg:not(:has(rect[fill="#000"])) rect { fill: var(--gb-1); }
+
+/* The ring: three solid greens, then hatched, chequered and striped fills, so six
+   slices stay apart with four shades. The fills are the patterns in index.html; the
+   list under the ring uses the same ones, drawn in CSS. */
+:root[data-look="gameboy"] .slice.s4 { stroke: url(#gb-hatch); }
+:root[data-look="gameboy"] .slice.s5 { stroke: url(#gb-checker); }
+:root[data-look="gameboy"] .slice.s6 { stroke: url(#gb-stripes); }
+:root[data-look="gameboy"] .slice.other { stroke: url(#gb-light); }
+:root[data-look="gameboy"] .swatch.s4 { background: repeating-linear-gradient(45deg, var(--gb-0) 0 2px, var(--gb-3) 2px 4px); }
+:root[data-look="gameboy"] .swatch.s5 { background: repeating-conic-gradient(var(--gb-1) 0 25%, var(--gb-3) 0 50%) 0 0 / 4px 4px; }
+:root[data-look="gameboy"] .swatch.s6 { background: repeating-linear-gradient(90deg, var(--gb-0) 0 2px, var(--gb-3) 2px 4px); }
+:root[data-look="gameboy"] .swatch.other { background: repeating-conic-gradient(var(--gb-2) 0 25%, var(--gb-3) 0 50%) 0 0 / 4px 4px; }
+:root[data-look="gameboy"] .swatch { outline: 1px solid var(--gb-0); }
+
+/* Text on the grey console, and messages like the games' text boxes */
+:root[data-look="gameboy"] footer .sub { color: var(--gb-0); }
+:root[data-look="gameboy"] #status:not(.error) { background: var(--gb-3); color: var(--gb-0); border: 3px solid var(--gb-0); }
