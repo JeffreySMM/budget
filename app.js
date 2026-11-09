@@ -12,11 +12,10 @@ import {
 } from './store.js';
 import { startSheetSync, scheduleSheetSync } from './sheet.js';
 import {
-  knownCategories, categoryIcon, startCategoryManager,
+  knownCategories, iconFor, startCategoryManager,
   fillCategorySelect, chooseCategory, syncNewCategoryField, chosenCategory, isNewCategoryChosen,
 } from './categories.js';
 import { categorySlots, donutSvg } from './donut.js';
-import { pixelIcon } from './pixel-icons.js';
 import { startBackup } from './backup.js';
 
 const TREND_MONTHS = 12;
@@ -288,19 +287,6 @@ function dayHeading(isoDate) {
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   if (isoDate === yesterday.toISOString().slice(0, 10)) return 'Yesterday';
   return formatDate(isoDate, { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
-// A small round badge: the category's emoji, or its first letter.
-function iconFor(name) {
-  const isRetro = document.documentElement.dataset.look === 'retro';
-  const pixel = isRetro ? pixelIcon(name) : null;
-  const emoji = isRetro ? null : categoryIcon(name); // retro: pixel art or the letter, never emoji
-  const letter = name.trim().charAt(0).toUpperCase();
-  const icon = pixel
-    ? el('span', { className: 'icon pixel' }, pixel)
-    : el('span', { className: emoji ? 'icon' : 'icon letter', textContent: emoji ?? letter });
-  icon.setAttribute('aria-hidden', 'true');
-  return icon;
 }
 
 function movementRow(movement) {
@@ -761,20 +747,20 @@ $('accounts').append(...Object.entries(ACCOUNTS).map(([account, label]) => el('l
 )));
 $('accounts').addEventListener('change', event => selectAccount(event.target.value));
 
-// Windows 95 look: a per-device preference, not synced or backed up; look.js applies
-// it before the page is drawn, and this keeps the switch's state in step.
+// Looks: a per-device preference, not synced or backed up. look.js applies it before
+// the page is drawn; the button steps through them and names the one showing.
 const LOOK_KEY = 'look';
-function applyLook(isRetro) {
-  document.documentElement.dataset.look = isRetro ? 'retro' : 'modern';
-  $('toggle-look').setAttribute('aria-pressed', String(isRetro));
-}
+const LOOKS = { modern: 'Modern', retro: 'Windows 95', mac: 'Classic Mac' };
+const showLook = () => { $('toggle-look').textContent = `Look: ${LOOKS[document.documentElement.dataset.look]}`; };
 $('toggle-look').addEventListener('click', () => {
-  const isRetro = document.documentElement.dataset.look !== 'retro';
-  if (!writeItem(LOOK_KEY, isRetro ? 'retro' : 'modern')) return;
-  applyLook(isRetro);
+  const looks = Object.keys(LOOKS);
+  const next = looks[(looks.indexOf(document.documentElement.dataset.look) + 1) % looks.length];
+  if (!writeItem(LOOK_KEY, next)) return;
+  document.documentElement.dataset.look = next;
+  showLook();
   render(); // icons differ between the looks
 });
-applyLook(document.documentElement.dataset.look === 'retro');
+showLook();
 
 // Limits saved before resets existed counted the calendar month. They keep counting
 // from this month's 1st until reset, instead of restarting when the month ends.

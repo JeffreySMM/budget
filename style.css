@@ -402,13 +402,23 @@ form input, form select { color: var(--text-primary); }
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 6px 10px;
+  padding: 0;
   border: 1px solid var(--grid);
   border-radius: 999px;
   font-size: 14px;
 }
 .chips li.removable { padding-right: 2px; border-color: var(--control-border); }
 .chips button { min-width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 999px; background: none; font-size: 16px; }
+/* Each category opens its icon choice */
+.chips .pick-icon { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px 0 4px; font: inherit; color: inherit; }
+.chips .icon { width: 26px; height: 26px; font-size: 15px; }
+.chips .icon.pixel svg { width: 18px; height: 18px; }
+
+/* Icon choice: every icon in a grid, the chosen one outlined */
+.icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+.icon-choice { display: grid; place-items: center; min-height: 44px; padding: 0; font-size: 22px; line-height: 1; }
+.icon-choice svg { width: 26px; height: 26px; }
+.icon-choice[aria-pressed="true"] { outline: 3px solid var(--action); outline-offset: 1px; }
 
 /* Category picker in the limit dialog: native checkboxes styled as chips */
 .checks { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; margin: 0; padding: 0; border: 0; }
@@ -514,13 +524,13 @@ footer .sub { flex-basis: 100%; }
 /* Pixel-font sizes: one Pixelify "pixel" is 1/10 em, and an iPhone has 3 screen pixels
    per CSS pixel, so text is crisp only at multiples of 10/3 px (13.33, 16.67, 20,
    26.67, 40...). At other sizes the font's pixels blur and an 8 smudges into an S. */
-:root[data-look="retro"] body { font-family: 'Pixelify Sans', system-ui, sans-serif; font-size: 16.667px; }
-:root[data-look="retro"] :is(.sub, form label, .day-heading, .segmented small, .bars, .legend,
+:root:is([data-look="retro"], [data-look="mac"]) body { font-family: 'Pixelify Sans', system-ui, sans-serif; font-size: 16.667px; }
+:root:is([data-look="retro"], [data-look="mac"]) :is(.sub, form label, .day-heading, .segmented small, .bars, .legend,
   .movements .what span, .paid, .axis, .column .tick, .chips li, #status, .donut-center span) { font-size: 13.333px; }
-:root[data-look="retro"] :is(input, select, button, .movements .row, .bills li, .limit-left, .segmented label) { font-size: 16.667px; }
-:root[data-look="retro"] :is(h1, h2, .donut-center strong) { font-size: 20px; }
-:root[data-look="retro"] .hero-value { font-size: 40px; }
-:root[data-look="retro"] .hero-value.is-empty { font-size: 26.667px; }
+:root:is([data-look="retro"], [data-look="mac"]) :is(input, select, button, .movements .row, .bills li, .limit-left, .segmented label) { font-size: 16.667px; }
+:root:is([data-look="retro"], [data-look="mac"]) :is(h1, h2, .donut-center strong) { font-size: 20px; }
+:root:is([data-look="retro"], [data-look="mac"]) .hero-value { font-size: 40px; }
+:root:is([data-look="retro"], [data-look="mac"]) .hero-value.is-empty { font-size: 26.667px; }
 /* Square corners everywhere: one blunt rule beats every rounded one above. */
 :root[data-look="retro"] * { border-radius: 0 !important; }
 
@@ -588,18 +598,16 @@ footer .sub { flex-basis: 100%; }
 
 /* Text sitting straight on the teal desktop */
 :root[data-look="retro"] footer .sub { color: #000; }
-:root[data-look="retro"] .icon { background: none; }
+:root:is([data-look="retro"], [data-look="mac"]) .icon { background: none; }
 :root[data-look="retro"] #status:not(.error) { background: #ffffe1; color: #000; border: 1px solid #000; }
-/* The switch itself shows pressed in while the retro look is on */
-:root[data-look="retro"] #toggle-look { border-color: #000 #fff #fff #000; box-shadow: inset 1px 1px #808080; }
 /* Pixel icons (retro look): square, no circle behind them, crisp edges */
 .icon.pixel { background: none; }
 .icon.pixel svg { width: 22px; height: 22px; }
 .bars th .icon.pixel svg, .bills .what .icon.pixel svg { width: 18px; height: 18px; }
 .donut-center strong { font-size: 18px; } /* "NT$27,000" fits inside the ring */
 /* Title bars that also hold a link: smaller title and link, still on the 10/3 px grid */
-:root[data-look="retro"] .card-head:first-child h2 { font-size: 16.667px; }
-:root[data-look="retro"] .card-head button.link { font-size: 13.333px; }
+:root:is([data-look="retro"], [data-look="mac"]) .card-head:first-child h2 { font-size: 16.667px; }
+:root:is([data-look="retro"], [data-look="mac"]) .card-head button.link { font-size: 13.333px; }
 /* Ring colours from the Windows 95 16-colour palette. Neighbours alternate dark and
    light, and red never sits next to green, so slices stay apart for colour-blind eyes;
    the list under the ring names every slice anyway. Slot 1 stays navy (above). */
@@ -610,3 +618,99 @@ footer .sub { flex-basis: 100%; }
   --series-5: #00ffff;
   --series-6: #800080;
 }
+
+/* --- Classic Mac look ---------------------------------------------------------
+   Black-and-white windows on a grey desktop, like System 7. Same pixel font and sizes
+   as the Windows 95 look (shared rules above). Light only, overriding dark mode. */
+:root[data-look="mac"] {
+  color-scheme: light;
+  --page: #b4b4b4;
+  --surface-1: #fff;
+  --text-primary: #000;
+  --text-secondary: #333;
+  --muted: #333;
+  --grid: #999;
+  --axis: #000;
+  --border: #000;
+  --control-border: #000;
+  --action: #000;
+  --link: #000;
+  --meter-track: #fff;
+  --deemphasis: #888;
+  --positive: #006300;
+  --critical: #c00000;
+  /* Ring: the six stripes of the old rainbow logo, ordered so red never sits next to
+     green; the list under the ring names every slice anyway. */
+  --series-1: #009ddc;
+  --series-2: #f5821f;
+  --series-3: #61bb46;
+  --series-4: #963d97;
+  --series-5: #fdb827;
+  --series-6: #e03a3e;
+}
+/* The desktop: two greys in a 1-pixel checkerboard, the classic dither */
+:root[data-look="mac"] body { background: repeating-conic-gradient(#999 0 25%, #c8c8c8 0 50%) 0 0 / 2px 2px; }
+/* Square windows and fields; only buttons keep the Mac's rounded corners */
+:root[data-look="mac"] * { border-radius: 0 !important; }
+:root[data-look="mac"] button:not(.link, .row, .ghost, .column, .undo) { border-radius: 6px !important; }
+
+/* Windows and dialogs: white, black outline, hard drop shadow */
+:root[data-look="mac"] :is(.card, dialog, header.top) { border: 1px solid #000; box-shadow: 2px 2px 0 #000; background: #fff; }
+:root[data-look="mac"] header.top { padding: 4px 8px; }
+/* Title bars: black pinstripes, the title on a white patch */
+:root[data-look="mac"] :is(.card > h2:first-child, .card > .card-head:first-child,
+  dialog > .card-head, dialog form > h2:first-child) {
+  margin: -14px -14px 8px;
+  padding: 3px 6px;
+  border-bottom: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-weight: 700;
+}
+/* A plain title bar centres its title, stripes either side */
+:root[data-look="mac"] :is(.card > h2:first-child, dialog form > h2:first-child) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:root[data-look="mac"] :is(.card > h2:first-child, dialog form > h2:first-child)::before,
+:root[data-look="mac"] :is(.card > h2:first-child, dialog form > h2:first-child)::after {
+  content: '';
+  flex: 1;
+  align-self: stretch;
+  background: repeating-linear-gradient(#000 0 1px, #fff 1px 2px);
+}
+/* A title bar that also holds a link or button: each on its own white patch */
+:root[data-look="mac"] :is(.card > .card-head:first-child, dialog > .card-head) {
+  padding-inline: 2px;
+  background: repeating-linear-gradient(#000 0 1px, #fff 1px 2px) content-box, #fff;
+}
+:root[data-look="mac"] :is(.card-head:first-child, dialog > .card-head) > * { background: #fff; padding: 0 4px; }
+:root[data-look="mac"] :is(.summary .label, .card-head button.link) { color: #000; }
+:root[data-look="mac"] button.link { text-decoration: underline; }
+
+/* Buttons: rounded, black outline; inverted while held */
+:root[data-look="mac"] button:not(.link, .row, .ghost, .column, .undo) {
+  border: 1px solid #000;
+  box-shadow: none;
+  background: #fff;
+  color: #000;
+}
+:root[data-look="mac"] button:not(.link, .row, .ghost, .column, .undo):active { background: #000; color: #fff; }
+/* The default button: a thick ring around it */
+:root[data-look="mac"] button.primary { outline: 2px solid #000; outline-offset: 2px; font-weight: 700; }
+:root[data-look="mac"] .fab { box-shadow: 2px 2px 0 #000; }
+
+/* Fields */
+:root[data-look="mac"] :is(input, select, .segmented) { border: 1px solid #000; box-shadow: none; background: #fff; color: #000; }
+:root[data-look="mac"] .segmented small { color: inherit; }
+
+/* Progress bars: black fill; hatched when nearly used up, red when over */
+:root[data-look="mac"] .meter { height: 14px; border: 1px solid #000; background: #fff; }
+:root[data-look="mac"] .meter div { background: #000; }
+:root[data-look="mac"] .meter .warn { background: repeating-linear-gradient(45deg, #000 0 2px, #fff 2px 4px); }
+:root[data-look="mac"] .meter .over { background: var(--critical); }
+
+/* Text sitting straight on the desktop gets a white label */
+:root[data-look="mac"] footer .sub { padding: 4px 6px; border: 1px solid #000; background: #fff; color: #000; }
+:root[data-look="mac"] #status:not(.error) { background: #fff; color: #000; border: 1px solid #000; box-shadow: 2px 2px 0 #000; }

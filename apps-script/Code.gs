@@ -37,8 +37,9 @@
 
 const SECRET_PROPERTY = 'BUDGET_SECRET';
 // Sent with every reply. 2: knows transfers (toAccount); 3: knows limit resets
-// (since). The app will not sync with an older script, since it would drop them.
-const SCHEMA = 3;
+// (since); 4: knows category icons. The app will not sync with an older script,
+// since it would drop them.
+const SCHEMA = 4;
 const ACCOUNTS = ['spending', 'savings']; // must match ACCOUNTS in logic.js
 const TABS = {
   Movements: ['id', 'date', 'amount', 'kind', 'account', 'toAccount', 'category', 'note'],
@@ -125,10 +126,28 @@ function categoryRows(categories) {
   if (!Array.isArray(categories.expense) || !Array.isArray(categories.income)) {
     throw new Error('the data sent has categories of the wrong shape');
   }
-  return [
+  const rows = [
     ['categories.expense', categories.expense.join(CATEGORY_SEPARATOR)],
     ['categories.income', categories.income.join(CATEGORY_SEPARATOR)],
   ];
+  if (categories.icons === undefined) return rows;
+  if (!categories.icons || typeof categories.icons !== 'object' || Array.isArray(categories.icons)) {
+    throw new Error('the data sent has category icons of the wrong shape');
+  }
+  // Read in the Sheet as "zumba=dumbbell | pets=paw".
+  const icons = Object.keys(categories.icons).map(name => name + '=' + categories.icons[name]);
+  return rows.concat([['categories.icons', icons.join(CATEGORY_SEPARATOR)]]);
+}
+
+// "zumba=dumbbell | pets=paw" back to { zumba: 'dumbbell', pets: 'paw' }. The key never
+// holds "=", so a category name that does still reads correctly.
+function splitIcons(value) {
+  const icons = {};
+  splitList(value).forEach(item => {
+    const at = item.lastIndexOf('=');
+    if (at > 0) icons[item.slice(0, at).trim()] = item.slice(at + 1).trim();
+  });
+  return icons;
 }
 
 function splitList(value) {
@@ -180,6 +199,7 @@ function readAll() {
       expense: splitList(settings['categories.expense']),
       income: splitList(settings['categories.income']),
     };
+    if (has('categories.icons')) data.categories.icons = splitIcons(settings['categories.icons']);
   }
   return { version: digest(JSON.stringify(data)), data: data };
 }

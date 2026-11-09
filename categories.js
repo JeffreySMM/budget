@@ -1,39 +1,28 @@
-// Category suggestions and the Categories dialog. A category is plain text on each
-// entry; this module only decides which names are offered: the ones already used,
-// the ones the user added, and a starter set.
+// Category suggestions, icons and the Categories dialog. A category is plain text on
+// each entry; this module only decides which names are offered (the ones already
+// used, the ones the user added, and a starter set) and which icon each one shows.
 import { cleanCategories, isCustomCategoryName, uniqueIgnoringCase, categoriesByUse, MAX_CUSTOM_CATEGORIES } from './logic.js';
 import { el } from './ui.js';
+import { ICON_CHOICES, isIconKey, emojiOfIcon, pixelKeyForName, emojiForName, pixelIcon } from './icons.js';
 
 export const CATEGORIES_KEY = 'categories';
 const DEFAULT_CATEGORIES = {
   expense: ['Food', 'Groceries', 'Transport', 'Housing', 'Utilities', 'Health', 'Fun', 'Shopping', 'Other'],
   income: ['Salary', 'Bonus', 'Interest', 'Gift', 'Refund', 'Other'],
 };
-const NONE_ADDED = { expense: [], income: [] };
-
-// Icons for common category names, matched ignoring letter case. Others get their
-// first letter in a circle (see iconFor in app.js).
-const CATEGORY_ICONS = {
-  food: '🍽️', groceries: '🛒', supermarket: '🛒', restaurants: '🍜', restaurant: '🍜', 'eating out': '🍜',
-  coffee: '☕', drinks: '🍹', snacks: '🍿',
-  transport: '🚌', taxi: '🚕', fuel: '⛽', gas: '⛽', parking: '🅿️', car: '🚗', travel: '✈️',
-  housing: '🏠', rent: '🏠', utilities: '💡', electricity: '⚡', water: '💧', internet: '🌐', phone: '📱',
-  health: '🩺', medical: '🩺', pharmacy: '💊', gym: '🏋️', sports: '⚽', insurance: '🛡️',
-  fun: '🎉', entertainment: '🎬', hobbies: '🎨', books: '📚', education: '🎓', subscriptions: '🔁',
-  shopping: '🛍️', clothes: '👕', gifts: '🎁', pets: '🐾', kids: '🧸', other: '📦',
-  salary: '💼', bonus: '🎁', interest: '🏦', gift: '🎁', refund: '↩️', transfer: '⇄',
-};
-
-/** @returns {string | null} an emoji for a common category name */
-export const categoryIcon = name => CATEGORY_ICONS[name.trim().toLowerCase()] ?? null;
+const NONE_ADDED = { expense: [], income: [], icons: {} };
 
 const $ = id => document.getElementById(id);
 const sameName = (a, b) => a.toLowerCase() === b.toLowerCase();
+const isPixelLook = () => document.documentElement.dataset.look !== 'modern';
 
 // What this module needs from the app, handed over by startCategoryManager.
 let app = null;
 
-/** @returns {{ expense: string[], income: string[] }} the categories the user added */
+/**
+ * @returns {{ expense: string[], income: string[], icons: Record<string, string> }} the
+ *   categories the user added, and the icons chosen for categories (by lowercase name)
+ */
 export function readCategories() {
   try {
     return cleanCategories(JSON.parse(localStorage.getItem(CATEGORIES_KEY))) ?? NONE_ADDED;
@@ -42,6 +31,62 @@ export function readCategories() {
     // entries keep their categories. Quarantine it like the other data if that changes.
     return NONE_ADDED;
   }
+}
+
+// --- Icons ----------------------------------------------------------------------
+// A category shows the icon chosen for it in the Categories window, else one its name
+// suggests, else its first letter. The retro looks draw pixel art, never emoji.
+
+const iconKey = name => name.trim().toLowerCase();
+const chosenIcon = name => {
+  const key = readCategories().icons[iconKey(name)];
+  return isIconKey(key) ? key : null;
+};
+
+/** @returns {string | null} the emoji for a category, for the modern look and plain text */
+export function categoryEmoji(name) {
+  const key = chosenIcon(name);
+  return key ? emojiOfIcon(key) : emojiForName(name);
+}
+
+/** @returns {HTMLSpanElement} the icon shown next to a category */
+export function iconFor(name) {
+  const pixel = isPixelLook() ? pixelIcon(chosenIcon(name) ?? pixelKeyForName(name)) : null;
+  const emoji = isPixelLook() ? null : categoryEmoji(name);
+  const icon = pixel
+    ? el('span', { className: 'icon pixel' }, pixel)
+    : el('span', { className: emoji ? 'icon' : 'icon letter', textContent: emoji ?? name.trim().charAt(0).toUpperCase() });
+  icon.setAttribute('aria-hidden', 'true');
+  return icon;
+}
+
+let iconTarget = ''; // the category the icon window is open for
+
+function openIconDialog(name) {
+  iconTarget = name;
+  const chosen = chosenIcon(name);
+  $('icon-title').textContent = `Icon for ${name}`;
+  $('icon-grid').replaceChildren(...ICON_CHOICES.map(({ key, label, emoji }) => {
+    const button = el('button', { type: 'button', className: 'icon-choice', title: label, onclick: () => chooseIcon(key) },
+      isPixelLook() ? pixelIcon(key) : emoji);
+    button.setAttribute('aria-label', label);
+    button.setAttribute('aria-pressed', String(key === chosen));
+    return button;
+  }));
+  $('icon-dialog').showModal();
+}
+
+// null goes back to the icon the name suggests (or the letter).
+function chooseIcon(key) {
+  const added = readCategories();
+  const name = iconKey(iconTarget);
+  const others = Object.entries(added.icons).filter(([other]) => other !== name);
+  const icons = Object.fromEntries(key ? [...others, [name, key]] : others);
+  if (!app.writeItem(CATEGORIES_KEY, JSON.stringify({ ...added, icons }))) return;
+  $('icon-dialog').close();
+  renderList();
+  // The list was redrawn, so put focus back on the category just changed.
+  [...$('category-list').querySelectorAll('.pick-icon')].find(button => button.dataset.name === iconTarget)?.focus();
 }
 
 // Most used first, then `extra` (names the caller knows from elsewhere), then the ones
@@ -66,13 +111,16 @@ function renderList() {
     // Only a category this user added, and no entry uses, can be removed: the others
     // would keep coming back from the starter set or from the entries.
     const isRemovable = added.some(c => sameName(c, name)) && !isUsed(name);
-    const label = `${categoryIcon(name) ?? '•'} ${name}`;
-    if (!isRemovable) return app.el('li', { textContent: label });
-    const removeButton = app.el('button', {
+    const pick = el('button', { type: 'button', className: 'pick-icon ghost', onclick: () => openIconDialog(name) },
+      iconFor(name), name);
+    pick.dataset.name = name;
+    pick.setAttribute('aria-label', `${name}, choose icon`);
+    if (!isRemovable) return el('li', {}, pick);
+    const removeButton = el('button', {
       type: 'button', textContent: '×', title: `Remove ${name}`, onclick: () => removeCategory(kind, name),
     });
     removeButton.setAttribute('aria-label', `Remove ${name}`);
-    return app.el('li', { className: 'removable' }, label, removeButton);
+    return el('li', { className: 'removable' }, pick, removeButton);
   }));
 }
 
@@ -130,6 +178,8 @@ export function startCategoryManager(appParts) {
     if (event.target.name === 'kind') renderList();
   });
   $('close-categories').addEventListener('click', () => dialog.close());
+  $('icon-default').addEventListener('click', () => chooseIcon(null));
+  $('cancel-icon').addEventListener('click', () => $('icon-dialog').close());
   // New categories appear in every suggestion list, and go to the Google Sheet.
   dialog.addEventListener('close', () => app.render());
 }
@@ -147,7 +197,7 @@ export function fillCategorySelect(select, names) {
   const placeholder = el('option', { value: '', textContent: 'Choose…', disabled: true, defaultSelected: true });
   const newOption = el('option', { value: 'new-category', textContent: 'New category…' });
   newOption.dataset.isNew = 'true';
-  const optionFor = name => el('option', { value: name, textContent: `${categoryIcon(name) ?? '•'}  ${name}` });
+  const optionFor = name => el('option', { value: name, textContent: `${categoryEmoji(name) ?? '•'}  ${name}` });
   select.replaceChildren(placeholder, ...names.map(optionFor), newOption);
   if (keepNew) newOption.selected = true;
   else chooseCategory(select, current);

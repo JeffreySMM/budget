@@ -101,7 +101,7 @@
       <button type="button" id="export">Export backup</button>
       <button type="button" id="import">Import backup</button>
       <button type="button" id="open-sheet">Google Sheet</button>
-      <button type="button" id="toggle-look" aria-pressed="false">Retro look</button>
+      <button type="button" id="toggle-look">Look: Modern</button>
       <input type="file" id="import-file" accept="application/json,.json" hidden>
       <p id="sheet-state" class="sub">Data stays on this device. Export a backup now and then.</p>
     </footer>
@@ -260,9 +260,20 @@
         <button type="submit" class="primary">Add category</button>
       </div>
       <ul id="category-list" class="chips" aria-label="Current categories"></ul>
-      <p class="sub">New categories show up as suggestions when you add a movement, a bill or a limit. You can remove one you added while no entry uses it.</p>
+      <p class="sub">Tap a category to choose its icon. New categories show up as suggestions when you add a movement, a bill or a limit. You can remove one you added while no entry uses it.</p>
       <div class="actions">
         <button type="button" id="close-categories">Done</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="icon-dialog" aria-labelledby="icon-title">
+    <form method="dialog">
+      <h2 id="icon-title">Icon</h2>
+      <div id="icon-grid" class="icon-grid" role="group" aria-labelledby="icon-title"></div>
+      <div class="actions">
+        <button type="button" id="icon-default">Use default</button>
+        <button type="button" id="cancel-icon">Cancel</button>
       </div>
     </form>
   </dialog>

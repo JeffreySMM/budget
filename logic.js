@@ -96,7 +96,18 @@ export function cleanCategories(value) {
   const clean = list => (Array.isArray(list)
     ? uniqueIgnoringCase(list.filter(isCustomCategoryName)).slice(0, MAX_CUSTOM_CATEGORIES)
     : []);
-  return Object.fromEntries(CATEGORY_KINDS.map(kind => [kind, clean(value[kind])]));
+  return { ...Object.fromEntries(CATEGORY_KINDS.map(kind => [kind, clean(value[kind])])), icons: cleanIcons(value.icons) };
+}
+
+// Icons chosen for categories: lowercase category name to icon key, e.g. { zumba: 'dumbbell' }.
+// Unknown keys are kept, so an icon added in a newer version survives an older one.
+const ICON_KEY = /^[a-z]{1,20}$/;
+const MAX_CHOSEN_ICONS = 2 * MAX_CUSTOM_CATEGORIES;
+function cleanIcons(icons) {
+  if (!icons || typeof icons !== 'object' || Array.isArray(icons)) return {};
+  return Object.fromEntries(Object.entries(icons)
+    .filter(([name, key]) => isCustomCategoryName(name) && name === name.toLowerCase() && ICON_KEY.test(key))
+    .slice(0, MAX_CHOSEN_ICONS));
 }
 
 export function isValidBill(b) {
@@ -337,10 +348,14 @@ export function mergeSnapshots(local, remote) {
     limits: mergeLimits(local.limits, remote.limits),
     expenses: mergeById(local.expenses, remote.expenses),
     // Added categories from both sides; a side without any (null) adds nothing.
-    categories: Object.fromEntries(CATEGORY_KINDS.map(kind => [kind, uniqueIgnoringCase([
-      ...(local.categories?.[kind] ?? []),
-      ...(remote.categories?.[kind] ?? []),
-    ]).slice(0, MAX_CUSTOM_CATEGORIES)])),
+    // Chosen icons too, this device's choice winning for a category both chose for.
+    categories: {
+      ...Object.fromEntries(CATEGORY_KINDS.map(kind => [kind, uniqueIgnoringCase([
+        ...(local.categories?.[kind] ?? []),
+        ...(remote.categories?.[kind] ?? []),
+      ]).slice(0, MAX_CUSTOM_CATEGORIES)])),
+      icons: cleanIcons({ ...remote.categories?.icons, ...local.categories?.icons }),
+    },
   };
 }
 

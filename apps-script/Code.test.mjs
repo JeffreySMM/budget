@@ -83,8 +83,8 @@ function runChecks() {
 
   assert.equal(get().ok, true); // opening the URL in a browser shows it is running
   assert.deepEqual(post({ secret: 'guess', action: 'pull' }), { ok: false, error: 'wrong password' });
-  // schema 3: the script knows transfers and limit resets; the app will not sync with an older one
-  assert.deepEqual(post({ secret, action: 'pull' }), { ok: true, schema: 3, version: '', data: null }); // new Sheet
+  // schema 4: the script knows transfers, limit resets and category icons; the app will not sync with an older one
+  assert.deepEqual(post({ secret, action: 'pull' }), { ok: true, schema: 4, version: '', data: null }); // new Sheet
 
   // Round trip: what the app pushes comes back unchanged
   const pushed = post({ secret, action: 'push', baseVersion: '', data: snapshot });
@@ -124,7 +124,7 @@ function runChecks() {
   // Custom categories travel in the Settings tab. A Sheet written without them reports
   // none at all, so the app keeps the categories it has.
   assert.equal('categories' in edited.data, false);
-  const withCategories = { ...snapshot, categories: { expense: ['Coffee', '3/4'], income: ['Tips'] } };
+  const withCategories = { ...snapshot, categories: { expense: ['Coffee', '3/4', 'a=b'], income: ['Tips'], icons: { coffee: 'coffee', 'a=b': 'box' } } };
   assert.equal(post({ secret, action: 'push', baseVersion: edited.version, data: withCategories }).ok, true);
   const withCategoriesPulled = post({ secret, action: 'pull' });
   assert.deepEqual(withCategoriesPulled.data.categories, withCategories.categories);
@@ -135,7 +135,7 @@ function runChecks() {
   const move = { id: 't1', date: '2026-10-15', cents: 500000, category: 'Transfer', note: '', account: 'spending', kind: 'transfer', toAccount: 'savings' };
   const withTransfer = { ...withCategories, expenses: [...snapshot.expenses, move] };
   const pushedTransfer = post({ secret, action: 'push', baseVersion: withCategoriesPulled.version, data: withTransfer });
-  assert.equal(pushedTransfer.schema, 3);
+  assert.equal(pushedTransfer.schema, 4);
   assert.deepEqual(post({ secret, action: 'pull' }).data.expenses[2], move);
 
   // A missing password property is reported, not treated as "no password"

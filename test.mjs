@@ -323,24 +323,30 @@ assert.equal(cleanCategories(undefined), null);
 assert.equal(cleanCategories(['Coffee']), null);
 assert.deepEqual(
   cleanCategories({ expense: ['Coffee', 'coffee', ' Pad', 'A|B', 7, ''], income: 'Tips' }),
-  { expense: ['Coffee'], income: [] },
+  { expense: ['Coffee'], income: [], icons: {} },
 );
+// Chosen icons: lowercase names to icon keys; anything else is dropped
+assert.deepEqual(
+  cleanCategories({ expense: [], income: [], icons: { zumba: 'dumbbell', Pets: 'paw', 'a|b': 'box', rent: 'Home!', fun: 7 } }).icons,
+  { zumba: 'dumbbell' },
+);
+assert.deepEqual(cleanCategories({ icons: ['paw'] }).icons, {});
 assert.equal(cleanSnapshot([expense()]).snapshot.categories, null); // bare-array backup
 assert.deepEqual(
   cleanSnapshot({ expenses: [], categories: { income: ['Tips'] } }).snapshot.categories,
-  { expense: [], income: ['Tips'] },
+  { expense: [], income: ['Tips'], icons: {} },
 );
 const base = { initials: { spending: null, savings: null }, bills: [], limits: [], expenses: [] };
 assert.deepEqual(
   mergeSnapshots(
-    { ...base, categories: { expense: ['Coffee'], income: [] } },
-    { ...base, categories: { expense: ['coffee', 'Pets'], income: ['Tips'] } },
+    { ...base, categories: { expense: ['Coffee'], income: [], icons: { zumba: 'dumbbell' } } },
+    { ...base, categories: { expense: ['coffee', 'Pets'], income: ['Tips'], icons: { zumba: 'heart', pets: 'paw' } } },
   ).categories,
-  { expense: ['Coffee', 'Pets'], income: ['Tips'] },
+  { expense: ['Coffee', 'Pets'], income: ['Tips'], icons: { zumba: 'dumbbell', pets: 'paw' } },
 );
 assert.deepEqual(
   mergeSnapshots({ ...base, categories: { expense: ['Coffee'], income: [] } }, { ...base, categories: null }).categories,
-  { expense: ['Coffee'], income: [] },
+  { expense: ['Coffee'], income: [], icons: {} },
 );
 
 // hashText: same text, same number; any change, different number
