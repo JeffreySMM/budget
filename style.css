@@ -648,8 +648,10 @@ footer .sub { flex-basis: 100%; }
   --series-5: #fdb827;
   --series-6: #e03a3e;
 }
-/* The desktop: two greys in a 1-pixel checkerboard, the classic dither */
-:root[data-look="mac"] body { background: repeating-conic-gradient(#999 0 25%, #c8c8c8 0 50%) 0 0 / 2px 2px; }
+/* The desktop: two greys in a 1-pixel checkerboard, the classic dither. The plain grey
+   under it is what iPhone Safari reads to colour its top bar; without one, the bar
+   keeps the colour of the look before. */
+:root[data-look="mac"] body { background: repeating-conic-gradient(#999 0 25%, #c8c8c8 0 50%) 0 0 / 2px 2px, var(--page); }
 /* Square windows and fields; only buttons keep the Mac's rounded corners */
 :root[data-look="mac"] * { border-radius: 0 !important; }
 :root[data-look="mac"] button:not(.link, .row, .ghost, .column, .undo) { border-radius: 6px !important; }
